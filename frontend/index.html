@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SIGES - Sistema de Gestão de Etapas de Serviços</title>
+<link rel="stylesheet" href="style.css">
+<script src="support.js"></script>
+<script src="app.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+</helmet>
+<div style="display:flex;height:100vh;min-width:1280px;overflow:hidden;background:#edf0ef;--ac:{{ acVar }};--rp:{{ rpVar }}">
+  <div onMouseEnter="{{ sbEnter }}" onMouseLeave="{{ sbLeave }}" style="width:{{ sbW }}px;transition:width 0.18s ease;background:#141d19;color:#c6d2cc;display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;z-index:10">
+    <div style="display:flex;align-items:center;gap:10px;padding:13px 14px 12px;border-bottom:1px solid rgba(255,255,255,0.07);white-space:nowrap">
+      <div style="width:32px;height:32px;border-radius:8px;background:var(--ac,#1c5f4b);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0">C</div>
+      <sc-if value="{{ menuAberto }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:#eef3f1;letter-spacing:0.01em">Cosampa</div>
+          <div style="font-size:10.5px;color:#7d8c86">Esteira de Faturamento</div>
+        </div>
+        <button onClick="{{ togglePin }}" title="{{ pinTip }}" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);color:#c6d2cc;border-radius:7px;width:26px;height:26px;font-size:13px;line-height:1;flex-shrink:0;padding:0">{{ pinChar }}</button>
+      </sc-if>
+    </div>
+    <div style="padding:10px 0;flex:1;overflow-y:auto;overflow-x:hidden">
+      <sc-for list="{{ menu }}" as="mi" hint-placeholder-count="7">
+        <div onClick="{{ mi.ir }}" title="{{ mi.tip }}" style="display:flex;align-items:center;gap:11px;margin:2px 9px;padding:8px 9px;border-radius:8px;white-space:nowrap;overflow:hidden;font-size:13px;background:{{ mi.bg }};color:{{ mi.fg }};opacity:{{ mi.op }};cursor:{{ mi.cur }};font-weight:{{ mi.fw }}" style-hover="filter:brightness(1.25)">
+          <span style="min-width:26px;text-align:center;font-family:'Spline Sans Mono',monospace;font-size:11px;font-weight:600;flex-shrink:0">{{ mi.ic }}</span>
+          <sc-if value="{{ menuAberto }}" hint-placeholder-val="{{ true }}"><span style="overflow:hidden;text-overflow:ellipsis">{{ mi.lb }}</span></sc-if>
+        </div>
+      </sc-for>
+    </div>
+    <sc-if value="{{ menuAberto }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:12px 16px;border-top:1px solid rgba(255,255,255,0.07);font-size:10.5px;color:#67766f;line-height:1.5;white-space:nowrap">Protótipo navegável v1<br>Dados fictícios · ago/2026</div>
+    </sc-if>
+  </div>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <div style="height:58px;background:#fff;border-bottom:1px solid #e2e8e5;display:flex;align-items:center;gap:12px;padding:0 22px;flex-shrink:0">
+      <div style="font-size:16.5px;font-weight:700;letter-spacing:-0.01em">{{ titulo }}</div>
+      <span style="font-size:10px;font-weight:600;letter-spacing:0.06em;color:#5b6b65;border:1px solid #d7dedb;border-radius:6px;padding:3px 7px;text-transform:uppercase">Satélite GPM</span>
+      <div style="flex:1"></div>
+      <div title="Base atualizada por automação periódica (~15 min por última modificação) — simulado no protótipo" style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:#5b6b65;background:#f2f5f4;border:1px solid #e2e8e5;border-radius:8px;padding:5px 10px">
+        <span style="width:7px;height:7px;border-radius:50%;background:#2e9e6b;flex-shrink:0"></span>
+        <span>GPM · atualizado {{ updLbl }}</span>
+        <button onClick="{{ sync }}" title="Sincronizar agora" style="border:none;background:transparent;color:var(--ac,#1c5f4b);font-size:14px;padding:0;line-height:1">&#8635;</button>
+      </div>
+      <button onClick="{{ abrirPremissas }}" style="font-size:11.5px;font-weight:600;color:#3c4a45;background:#fff;border:1px solid #d7dedb;border-radius:8px;padding:6px 11px" style-hover="background:#f2f5f4">Premissas ({{ nPrem }})</button>
+      <div style="display:flex;align-items:center;gap:7px">
+        <span style="font-size:11px;color:#71807a">Perfil</span>
+        <select value="{{ perfil }}" onChange="{{ setPerfil }}" style="padding:6px 8px;border:1px solid #d7dedb;border-radius:8px;background:#fff;font-size:12px;font-weight:600;color:#1f2a26">
+          <option value="Fechamento">Fechamento</option>
+          <option value="Operação">Operação</option>
+          <option value="Faturamento">Faturamento</option>
+        </select>
+      </div>
+    </div>
+    <div style="background:#fff;border-bottom:1px solid #e2e8e5;padding:9px 22px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0">
+      <select value="{{ f.periodo }}" onChange="{{ sfPeriodo }}" style="padding:7px 9px;border:1px solid #d7dedb;border-radius:8px;background:#fff;font-size:12px;color:#1f2a26">
+        <option value="mes">Agosto/2026 (mês todo)</option>
+        <option value="7d">Últimos 7 dias</option>
+        <option value="3d">Últimos 3 dias</option>
+      </select>
+      <select value="{{ f.contrato }}" onChange="{{ sfContrato }}" style="padding:7px 9px;border:1px solid #d7dedb;border-radius:8px;background:#fff;font-size:12px;color:#1f2a26;max-width:200px">
+        <option value="todos">Todos os contratos</option>
+        <option value="A">CT-2024/018 · Dist. Leste</option>
+        <option value="B">CT-2025/007 · Dist. Sul</option>
+        <option value="C">CT-2023/031 · Ilum. Pública ZL</option>
+      </select>
+      <select value="{{ f.tipo }}" onChange="{{ sfTipo }}" style="padding:7px 9px;border:1px solid #d7dedb;border-radius:8px;background:#fff;font-size:12px;color:#1f2a26">
+        <option value="todos">Todos os tipos</option>
+        <option value="Rede">Rede</option>
+        <option value="Transformador">Transformador</option>
+        <option value="Medidor">Medidor</option>
+        <option value="Ramal">Ramal</option>
+        <option value="Poste">Poste</option>
+        <option value="Iluminação">Iluminação</option>
+      </select>
+      <select value="{{ f.area }}" onChange="{{ sfArea }}" style="padding:7px 9px;border:1px solid #d7dedb;border-radius:8px;background:#fff;font-size:12px;color:#1f2a26">
+        <option value="todas">Todas as áreas</option>
+        <option value="Fechamento">Fechamento</option>
+        <option value="Operação">Operação</option>
+        <option value="Faturamento">Faturamento</option>
+        <option value="Geral">Geral</option>
+      </select>
+      <select value="{{ f.status }}" onChange="{{ sfStatus }}" style="padding:7px 9px;border:1px solid #d7dedb;border-radius:8px;background:#fff;font-size:12px;color:#1f2a26;max-width:230px">
+        <option value="todos">Todos os status</option>
+        <option value="1">01 · Aguardando Conferência</option>
+        <option value="2">02 · Pendências Operacionais</option>
+        <option value="3">03 · Aguard. Envio p/ Validação</option>
+        <option value="4">04 · Aguard. Validação do Cliente</option>
+        <option value="5">05 · Rejeitado na Validação (Fech.)</option>
+        <option value="6">06 · Rejeitado na Validação (Oper.)</option>
+        <option value="7">07 · Validado — Aguard. Autorização</option>
+        <option value="8">08 · Faturado — Aguard. Conciliação</option>
+        <option value="9">09 · Análise de Conciliação</option>
+        <option value="10">10 · Conciliado c/ Divergências</option>
+        <option value="11">11 · Pgto a Menor — Cobrar Cliente</option>
+        <option value="12">12 · Pgto a Menor — Em Disputa</option>
+        <option value="13">13 · Faturado Total</option>
+        <option value="14">14 · Faturado a Maior</option>
+        <option value="15">15 · Faturado a Menor</option>
+      </select>
+      <input value="{{ f.busca }}" onChange="{{ sfBusca }}" placeholder="Buscar SOB, obra, contrato…" style="padding:7px 10px;border:1px solid #d7dedb;border-radius:8px;font-size:12px;width:180px;background:#fff">
+      <sc-if value="{{ temFiltro }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ limpar }}" style="font-size:11.5px;font-weight:600;color:#b03a28;background:transparent;border:none;padding:6px 4px">Limpar</button>
+      </sc-if>
+      <div style="flex:1"></div>
+      <span style="font-size:10.5px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#8a9791">Presets</span>
+      <sc-for list="{{ presets }}" as="pr" hint-placeholder-count="1">
+        <span onClick="{{ pr.aplicar }}" title="Aplicar este preset de filtros" style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:#14483a;background:#eaf2ee;border:1px solid #cfe0d8;border-radius:20px;padding:5px 10px;cursor:pointer" style-hover="background:#dfece6">
+          <span>{{ pr.nome }}</span><span onClick="{{ pr.remover }}" title="Excluir preset" style="color:#71807a;font-size:12px;line-height:1">×</span>
+        </span>
+      </sc-for>
+      <sc-if value="{{ salvando }}" hint-placeholder-val="{{ false }}">
+        <input value="{{ pNome }}" onChange="{{ setPNome }}" placeholder="Nome do preset…" style="padding:6px 9px;border:1px solid #d7dedb;border-radius:8px;font-size:12px;width:150px;background:#fff">
+        <button onClick="{{ confirmarPreset }}" style="font-size:11.5px;font-weight:600;color:#fff;background:var(--ac,#1c5f4b);border:none;border-radius:8px;padding:7px 11px" style-hover="filter:brightness(1.1)">Salvar</button>
+        <button onClick="{{ cancelarPreset }}" style="font-size:11.5px;font-weight:600;color:#5b6b65;background:transparent;border:none;padding:6px 2px">Cancelar</button>
+      </sc-if>
+      <sc-if value="{{ naoSalvando }}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{ iniciarSalvar }}" title="Salva a combinação atual de filtros como preset" style="font-size:11.5px;font-weight:600;color:#3c4a45;background:#fff;border:1px dashed #c3ccc8;border-radius:8px;padding:6px 11px" style-hover="background:#f2f5f4">+ Salvar preset</button>
+      </sc-if>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:18px 22px 32px">
+      <sc-if value="{{ telaGer }}" hint-placeholder-val="{{ true }}">
+        <div data-screen-label="Gerencial" style="display:flex;flex-direction:column;gap:14px;max-width:1420px">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+            <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:14px 16px">
+              <div style="font-size:10.5px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#71807a">Serviços na esteira</div>
+              <div style="font-family:'Spline Sans Mono',monospace;font-size:27px;font-weight:600;margin-top:6px;line-height:1.1">{{ kEsteira }}</div>
+              <div style="font-size:11.5px;color:#71807a;margin-top:4px">{{ kEsteiraSub }}</div>
+            </div>
+            <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:14px 16px">
+              <div style="font-size:10.5px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#71807a">Valor na esteira</div>
+              <div style="font-family:'Spline Sans Mono',monospace;font-size:27px;font-weight:600;margin-top:6px;line-height:1.1">{{ kValor }}</div>
+              <div style="font-size:11.5px;color:#71807a;margin-top:4px">{{ kValorSub }}</div>
+            </div>
+            <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:14px 16px">
+              <div style="font-size:10.5px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#71807a">Por macroetapa</div>
+              <div style="display:flex;height:10px;border-radius:5px;overflow:hidden;margin-top:12px;background:#f0f3f2">
+                <sc-for list="{{ macroSeg }}" as="ms" hint-placeholder-count="4"><div title="{{ ms.lb }}" style="width:{{ ms.w }}%;background:{{ ms.color }}"></div></sc-for>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:10px">
+                <sc-for list="{{ macroSeg }}" as="ms" hint-placeholder-count="4">
+                  <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#5b6b65"><span style="width:8px;height:8px;border-radius:3px;background:{{ ms.color }}"></span>{{ ms.lb }} <b style="font-family:'Spline Sans Mono',monospace">{{ ms.c }}</b></span>
+                </sc-for>
+              </div>
+            </div>
+            <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:14px 16px">
+              <div style="font-size:10.5px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#71807a">Tempo médio na etapa</div>
+              <div style="font-family:'Spline Sans Mono',monospace;font-size:27px;font-weight:600;margin-top:6px;line-height:1.1">{{ kTempo }}</div>
+              <div style="font-size:11.5px;font-weight:600;margin-top:4px;color:{{ kTempoSubFg }}">{{ kTempoSub }}</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1.55fr 1fr;gap:14px">
+            <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:16px 18px">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+                <span style="font-size:13px;font-weight:700">Serviços por status</span>
+                <span style="font-size:11px;color:#8a9791">{{ nTotalLb }}</span>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:6px;height:158px;margin-top:14px">
+                <sc-for list="{{ barsStatus }}" as="b" hint-placeholder-count="15">
+                  <div title="{{ b.tip }}" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;min-width:0;height:100%">
+                    <span style="font-family:'Spline Sans Mono',monospace;font-size:10.5px;color:#5b6b65">{{ b.cLb }}</span>
+                    <div style="width:100%;max-width:32px;height:{{ b.h }}px;background:{{ b.color }};border-radius:4px 4px 0 0"></div>
+                    <span style="font-family:'Spline Sans Mono',monospace;font-size:10px;color:#8a9791">{{ b.lb }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:16px 18px">
+              <span style="font-size:13px;font-weight:700">Valor parado por macroetapa</span>
+              <sc-for list="{{ valMacro }}" as="vm" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:10px;margin-top:11px">
+                  <span style="width:86px;font-size:11.5px;color:#3c4a45;flex-shrink:0">{{ vm.lb }}</span>
+                  <div style="flex:1;height:14px;background:#f0f3f2;border-radius:4px;overflow:hidden"><div style="width:{{ vm.w }}%;height:100%;background:{{ vm.color }};border-radius:4px"></div></div>
+                  <span style="width:82px;text-align:right;font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:600">{{ vm.val }}</span>
+                </div>
+              </sc-for>
+              <div style="margin-top:16px;background:#eaf2ee;border:1px solid #cfe0d8;border-radius:8px;padding:10px 12px;font-size:12px;color:#14483a;line-height:1.5"><b style="font-family:'Spline Sans Mono',monospace">{{ calloutVal }}</b> aguardando validação do cliente (04)</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:14px">
+            <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:16px 18px">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+                <span style="font-size:13px;font-weight:700">Medido × Faturado no mês</span>
+                <span style="display:inline-flex;gap:12px;font-size:11px;color:#5b6b65">
+                  <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:3px;background:#3f4f49"></span>Medido</span>
+                  <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:3px;background:var(--ac,#1c5f4b)"></span>Faturado</span>
+                </span>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:16px;height:136px;margin-top:14px">
+                <sc-for list="{{ semanas }}" as="w" hint-placeholder-count="6">
+                  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;height:100%">
+                    <div style="display:flex;align-items:flex-end;gap:3px">
+                      <div title="{{ w.mTip }}" style="width:15px;height:{{ w.mH }}px;background:#3f4f49;border-radius:3px 3px 0 0"></div>
+                      <div title="{{ w.fTip }}" style="width:15px;height:{{ w.fH }}px;background:var(--ac,#1c5f4b);border-radius:3px 3px 0 0"></div>
+                    </div>
+                    <span style="font-family:'Spline Sans Mono',monospace;font-size:10px;color:#8a9791">{{ w.lb }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="font-size:10.5px;color:#8a9791;margin-top:10px">Semanas encerradas em cada data · valores em R$ mil · série ilustrativa</div>
+            </div>
+            <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:16px 18px">
+              <span style="font-size:13px;font-weight:700">Gargalos — tempo médio por etapa</span>
+              <sc-for list="{{ gargalos }}" as="g" hint-placeholder-count="5">
+                <div style="margin-top:11px">
+                  <div style="display:flex;align-items:center;gap:8px;font-size:11.5px">
+                    <span style="background:{{ g.bg }};color:{{ g.fg }};border-radius:4px;padding:1px 5px;font-family:'Spline Sans Mono',monospace;font-size:10px;font-weight:600">{{ g.num }}</span>
+                    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#3c4a45">{{ g.nome }}</span>
+                    <span style="font-family:'Spline Sans Mono',monospace;font-weight:600;color:{{ g.diasFg }}">{{ g.dias }}</span>
+                    <span style="font-size:10.5px;color:#8a9791">{{ g.slaLb }}</span>
+                  </div>
+                  <div style="height:6px;background:#f0f3f2;border-radius:3px;margin-top:5px;overflow:hidden"><div style="width:{{ g.w }}%;height:100%;background:{{ g.barColor }};border-radius:3px"></div></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;overflow:hidden">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:14px 18px 10px">
+              <span style="font-size:13px;font-weight:700">Radar de SLA — serviços estourados</span>
+              <span style="font-size:11px;color:#8a9791">clique para abrir o detalhamento</span>
+            </div>
+            <sc-for list="{{ radar }}" as="r" hint-placeholder-count="5">
+              <div onClick="{{ r.abrir }}" style="display:grid;grid-template-columns:170px 132px minmax(130px,1fr) 76px 84px 110px 70px;gap:10px;align-items:center;padding:8px 18px;border-top:1px solid #eef1f0;cursor:pointer;font-size:12px" style-hover="background:#f7f9f8">
+                <span title="{{ r.cNome }}" style="display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:3px 8px 3px 4px;border-radius:6px;background:{{ r.cBg }};color:{{ r.cFg }};font-size:11px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden"><span style="background:rgba(255,255,255,0.75);border-radius:4px;padding:1px 4px;font-family:'Spline Sans Mono',monospace;font-size:10px;font-weight:600">{{ r.cNum }}</span><span style="overflow:hidden;text-overflow:ellipsis">{{ r.cNome }}</span></span>
+                <span style="font-family:'Spline Sans Mono',monospace;font-size:12px;font-weight:600">{{ r.id }}</span>
+                <span style="font-size:11.5px;color:#5b6b65;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.obLb }}</span>
+                <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:600;color:#b03a28">{{ r.diasLb }}</span>
+                <span style="font-size:11px;color:#8a9791">{{ r.limLb }}</span>
+                <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:600;text-align:right">{{ r.valor }}</span>
+                <span style="font-size:11.5px;font-weight:600;color:var(--ac,#1c5f4b);text-align:right">Abrir ↗</span>
+              </div>
+            </sc-for>
+            <sc-if value="{{ radarVazio }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:16px 18px;font-size:12px;color:#8a9791;border-top:1px solid #eef1f0">Nenhum SLA estourado com os filtros atuais.</div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ telaMed }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="01. Medição" style="display:flex;flex-direction:column;gap:14px;max-width:1420px">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1.7fr;gap:14px">
+            <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:14px 16px">
+              <div style="font-size:10.5px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#71807a">Na fila de medição</div>
+              <div style="font-family:'Spline Sans Mono',monospace;font-size:25px;font-weight:600;margin-top:6px;line-height:1.1">{{ cM1v }}</div>
+              <div style="font-size:11.5px;color:#71807a;margin-top:4px">{{ cM1s }}</div>
+            </div>
+            <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:14px 16px">
+              <div style="font-size:10.5px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#71807a">SLA estourado</div>
+              <div style="font-family:'Spline Sans Mono',monospace;font-size:25px;font-weight:600;margin-top:6px;line-height:1.1;color:{{ cM2fg }}">{{ cM2v }}</div>
+              <div style="font-size:11.5px;color:#71807a;margin-top:4px">{{ cM2s }}</div>
+            </div>
+            <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:14px 16px">
+              <div style="font-size:10.5px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#71807a">Prontos p/ envio (03)</div>
+              <div style="font-family:'Spline Sans Mono',monospace;font-size:25px;font-weight:600;margin-top:6px;line-height:1.1">{{ cM3v }}</div>
+              <div style="font-size:11.5px;color:#71807a;margin-top:4px">{{ cM3s }}</div>
+            </div>
+            <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:14px 16px">
+              <div style="font-size:10.5px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#71807a">Insights</div>
+              <sc-for list="{{ insightsMed }}" as="ins" hint-placeholder-count="3">
+                <div style="display:flex;gap:8px;margin-top:7px;font-size:11.5px;line-height:1.45;color:#3c4a45">
+                  <span style="width:6px;height:6px;border-radius:50%;background:var(--ac,#1c5f4b);flex-shrink:0;margin-top:5px"></span>
+                  <span>{{ ins.t }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:flex;gap:14px;align-items:flex-start">
+            <div style="flex:1;min-width:0;background:#fff;border:1px solid #e2e8e5;border-radius:10px;overflow:hidden">
+              <div style="display:grid;grid-template-columns:26px 158px minmax(132px,1fr) 64px 46px 84px 90px minmax(110px,1fr) 54px;gap:8px;align-items:center;padding:9px 10px;background:#f7f9f8;border-bottom:1px solid #e2e8e5;font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#71807a">
+                <input type="checkbox" checked="{{ selAll }}" onChange="{{ toggleAll }}" title="Selecionar todos" style="accent-color:var(--ac,#1c5f4b);margin:0">
+                <span>Status</span><span>Serviço</span><span>Nota</span><span>Data</span><span>Dep.</span><span style="text-align:right">Valor</span><span>Retorno</span><span>SLA</span>
+              </div>
+              <sc-for list="{{ rowsMed }}" as="r" hint-placeholder-count="6">
+                <div onClick="{{ r.abrir }}" title="Clique para abrir o detalhamento" style="display:grid;grid-template-columns:26px 158px minmax(132px,1fr) 64px 46px 84px 90px minmax(110px,1fr) 54px;gap:8px;align-items:center;padding:var(--rp,7px) 10px;border-bottom:1px solid #eef1f0;cursor:pointer;font-size:12px;background:{{ r.bg }}" style-hover="background:#f2f5f4">
+                  <input type="checkbox" checked="{{ r.sel }}" onChange="{{ r.toggleSel }}" onClick="{{ stopProp }}" style="accent-color:var(--ac,#1c5f4b);margin:0">
+                  <span title="{{ r.cNome }}" style="display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:3px 7px 3px 4px;border-radius:6px;background:{{ r.cBg }};color:{{ r.cFg }};font-size:10.5px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden"><span style="background:rgba(255,255,255,0.75);border-radius:4px;padding:1px 4px;font-family:'Spline Sans Mono',monospace;font-size:9.5px;font-weight:600">{{ r.cNum }}</span><span style="overflow:hidden;text-overflow:ellipsis">{{ r.cNome }}</span></span>
+                  <span style="min-width:0"><span style="display:block;font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:600">{{ r.id }}</span><span style="display:block;font-size:10.5px;color:#71807a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.ob }} · {{ r.tp }}</span></span>
+                  <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#5b6b65">{{ r.nota }}</span>
+                  <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#5b6b65">{{ r.data }}</span>
+                  <span style="font-size:11px;color:#5b6b65">{{ r.dep }}</span>
+                  <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:600;text-align:right">{{ r.valor }}</span>
+                  <span title="{{ r.ret }}" style="font-size:11px;color:#5b6b65;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.ret }}</span>
+                  <span title="{{ r.slaTip }}" style="justify-self:start;font-family:'Spline Sans Mono',monospace;font-size:11px;font-weight:600;padding:3px 7px;border-radius:6px;background:{{ r.sBg }};color:{{ r.sFg }}">{{ r.slaLb }}</span>
+                </div>
+              </sc-for>
+              <sc-if value="{{ medVazia }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:18px 14px;font-size:12px;color:#8a9791">Nenhum serviço na fila com os filtros atuais.</div>
+              </sc-if>
+              <div style="display:flex;justify-content:space-between;padding:8px 12px;font-size:11.5px;color:#71807a;background:#fbfcfc">
+                <span>{{ selLb }}</span><span>{{ nMedLb }}</span>
+              </div>
+            </div>
+            <div style="width:248px;flex-shrink:0;position:sticky;top:0;align-self:flex-start;display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:0 2px">
+                <span style="font-size:10.5px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#71807a">Tratativas</span>
+                <span title="Serviços selecionados na tabela" style="font-size:11px;font-weight:600;color:#fff;background:#3f4f49;border-radius:10px;padding:2px 9px;font-family:'Spline Sans Mono',monospace">{{ nSel }} sel.</span>
+              </div>
+              <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:13px 14px">
+                <div style="font-size:12.5px;font-weight:700">Alterar status</div>
+                <div style="font-size:11px;color:#71807a;margin-top:2px;line-height:1.45">Individual ou em massa — ex.: 01 → 07.</div>
+                <select value="{{ alvo }}" onChange="{{ setAlvo }}" style="width:100%;margin-top:9px;padding:7px 8px;border:1px solid #d7dedb;border-radius:8px;background:#fff;font-size:11.5px;color:#1f2a26">
+                  <option value="">Novo status…</option>
+                  <option value="1">01 · Aguardando Conferência</option>
+                  <option value="2">02 · Pendências Operacionais</option>
+                  <option value="3">03 · Aguard. Envio p/ Validação</option>
+                  <option value="4">04 · Aguard. Validação do Cliente</option>
+                  <option value="5">05 · Rejeitado na Validação (Fech.)</option>
+                  <option value="6">06 · Rejeitado na Validação (Oper.)</option>
+                  <option value="7">07 · Validado — Aguard. Autorização</option>
+                  <option value="8">08 · Faturado — Aguard. Conciliação</option>
+                  <option value="9">09 · Análise de Conciliação</option>
+                  <option value="10">10 · Conciliado c/ Divergências</option>
+                  <option value="11">11 · Pgto a Menor — Cobrar Cliente</option>
+                  <option value="12">12 · Pgto a Menor — Em Disputa</option>
+                  <option value="13">13 · Faturado Total</option>
+                  <option value="14">14 · Faturado a Maior</option>
+                  <option value="15">15 · Faturado a Menor</option>
+                </select>
+                <button onClick="{{ aplicarStatus }}" style="width:100%;margin-top:8px;background:var(--ac,#1c5f4b);color:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:600" style-hover="filter:brightness(1.12)">Aplicar aos selecionados</button>
+              </div>
+              <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:13px 14px">
+                <div style="font-size:12.5px;font-weight:700">Baixar / Tramitar</div>
+                <div style="font-size:11px;color:#71807a;margin-top:2px;line-height:1.45">Avança para a próxima etapa sugerida (ex.: 01 → 03).</div>
+                <button onClick="{{ tramitar }}" style="width:100%;margin-top:9px;background:#fff;color:#14483a;border:1px solid #cfe0d8;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:600" style-hover="background:#eaf2ee">Tramitar selecionados</button>
+              </div>
+              <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:13px 14px">
+                <div style="font-size:12.5px;font-weight:700">Grupo de pendências</div>
+                <div style="font-size:11px;color:#71807a;margin-top:2px;line-height:1.45">Envia os selecionados para 02. Pendências com os tipos marcados.</div>
+                <div style="margin-top:7px">
+                  <sc-for list="{{ gpItens }}" as="gp" hint-placeholder-count="5">
+                    <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0;cursor:pointer;color:#3c4a45">
+                      <input type="checkbox" checked="{{ gp.on }}" onChange="{{ gp.toggle }}" style="accent-color:var(--ac,#1c5f4b);margin:0">{{ gp.t }}
+                    </label>
+                  </sc-for>
+                </div>
+                <button onClick="{{ enviarPend }}" style="width:100%;margin-top:8px;background:#fdf3e3;color:#8a5a0d;border:1px solid #ecd9b7;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:600" style-hover="filter:brightness(0.97)">Enviar para 02. Pendências</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ telaPen }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="02. Pendências" style="display:flex;flex-direction:column;gap:14px;max-width:1420px">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1.7fr;gap:14px">
+            <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:14px 16px">
+              <div style="font-size:10.5px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#71807a">Serviços com pendências</div>
+              <div style="font-family:'Spline Sans Mono',monospace;font-size:25px;font-weight:600;margin-top:6px;line-height:1.1">{{ cP1v }}</div>
+              <div style="font-size:11.5px;color:#71807a;margin-top:4px">{{ cP1s }} bloqueados</div>
+            </div>
+            <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:14px 16px">
+              <div style="font-size:10.5px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#71807a">Pendências abertas</div>
+              <div style="font-family:'Spline Sans Mono',monospace;font-size:25px;font-weight:600;margin-top:6px;line-height:1.1;color:#b03a28">{{ cP2v }}</div>
+              <div style="font-size:11.5px;color:#71807a;margin-top:4px">{{ cP2s }}</div>
+            </div>
+            <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:14px 16px">
+              <div style="font-size:10.5px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#71807a">Tempo médio em aberto</div>
+              <div style="font-family:'Spline Sans Mono',monospace;font-size:25px;font-weight:600;margin-top:6px;line-height:1.1">{{ cP3v }}</div>
+              <div style="font-size:11.5px;color:#71807a;margin-top:4px">{{ cP3s }}</div>
+            </div>
+            <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:14px 16px">
+              <div style="font-size:10.5px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#71807a">Pendências por tipo</div>
+              <sc-for list="{{ tiposChart }}" as="tc" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+                  <span style="width:78px;font-size:11px;color:#3c4a45;flex-shrink:0">{{ tc.lb }}</span>
+                  <div style="flex:1;height:9px;background:#f0f3f2;border-radius:3px;overflow:hidden"><div style="width:{{ tc.w }}%;height:100%;background:oklch(0.65 0.11 75);border-radius:3px"></div></div>
+                  <span style="width:16px;text-align:right;font-family:'Spline Sans Mono',monospace;font-size:11px;font-weight:600">{{ tc.c }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:flex;gap:14px;align-items:flex-start">
+            <div style="flex:1;min-width:0;background:#fff;border:1px solid #e2e8e5;border-radius:10px;overflow:hidden">
+              <div style="display:grid;grid-template-columns:158px minmax(130px,1fr) 128px minmax(150px,1.2fr) 46px 54px 88px;gap:8px;align-items:center;padding:9px 12px;background:#f7f9f8;border-bottom:1px solid #e2e8e5;font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#71807a">
+                <span>Status</span><span>Serviço</span><span>Contrato</span><span>Pendências</span><span>Data</span><span>SLA</span><span style="text-align:right">Valor</span>
+              </div>
+              <sc-for list="{{ rowsPen }}" as="r" hint-placeholder-count="6">
+                <div onClick="{{ r.focar }}" title="Clique para tratar as pendências no painel ao lado" style="display:grid;grid-template-columns:158px minmax(130px,1fr) 128px minmax(150px,1.2fr) 46px 54px 88px;gap:8px;align-items:center;padding:var(--rp,7px) 12px;border-bottom:1px solid #eef1f0;cursor:pointer;font-size:12px;background:{{ r.bg }}" style-hover="background:#f2f5f4">
+                  <span title="{{ r.cNome }}" style="display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:3px 7px 3px 4px;border-radius:6px;background:{{ r.cBg }};color:{{ r.cFg }};font-size:10.5px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden"><span style="background:rgba(255,255,255,0.75);border-radius:4px;padding:1px 4px;font-family:'Spline Sans Mono',monospace;font-size:9.5px;font-weight:600">{{ r.cNum }}</span><span style="overflow:hidden;text-overflow:ellipsis">{{ r.cNome }}</span></span>
+                  <span style="min-width:0"><span style="display:block;font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:600">{{ r.id }}</span><span style="display:block;font-size:10.5px;color:#71807a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.ob }} · {{ r.tp }}</span></span>
+                  <span style="font-size:11px;color:#5b6b65;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.ctLb }}</span>
+                  <span style="display:flex;flex-wrap:wrap;gap:4px">
+                    <sc-for list="{{ r.tipos }}" as="tp" hint-placeholder-count="2">
+                      <span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:5px;background:{{ tp.bg }};color:{{ tp.fg }};white-space:nowrap">{{ tp.lb }}</span>
+                    </sc-for>
+                  </span>
+                  <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#5b6b65">{{ r.data }}</span>
+                  <span title="{{ r.slaTip }}" style="justify-self:start;font-family:'Spline Sans Mono',monospace;font-size:11px;font-weight:600;padding:3px 7px;border-radius:6px;background:{{ r.sBg }};color:{{ r.sFg }}">{{ r.slaLb }}</span>
+                  <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:600;text-align:right">{{ r.valor }}</span>
+                </div>
+              </sc-for>
+              <sc-if value="{{ penVazia }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:18px 14px;font-size:12px;color:#8a9791">Nenhum serviço com pendências nos filtros atuais.</div>
+              </sc-if>
+            </div>
+            <div style="width:300px;flex-shrink:0;position:sticky;top:0;align-self:flex-start;background:#fff;border:1px solid #e2e8e5;border-radius:10px;overflow:hidden">
+              <sc-if value="{{ focoOn }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:13px 14px;border-bottom:1px solid #eef1f0">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                    <span style="font-family:'Spline Sans Mono',monospace;font-size:13px;font-weight:700">{{ focoId }}</span>
+                    <span onClick="{{ focoAbrirDet }}" style="font-size:11.5px;font-weight:600;color:var(--ac,#1c5f4b);cursor:pointer">Detalhamento ↗</span>
+                  </div>
+                  <div style="margin-top:7px"><span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px 3px 4px;border-radius:6px;background:{{ focoChip.cBg }};color:{{ focoChip.cFg }};font-size:10.5px;font-weight:600"><span style="background:rgba(255,255,255,0.75);border-radius:4px;padding:1px 4px;font-family:'Spline Sans Mono',monospace;font-size:9.5px;font-weight:600">{{ focoChip.cNum }}</span>{{ focoChip.cNome }}</span></div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+                    <div style="flex:1;height:6px;background:#f0f3f2;border-radius:3px;overflow:hidden"><div style="width:{{ focoProgW }}%;height:100%;background:var(--ac,#1c5f4b);border-radius:3px"></div></div>
+                    <span style="font-size:10.5px;color:#71807a;white-space:nowrap">{{ focoProgLb }}</span>
+                  </div>
+                </div>
+                <div style="padding:11px 14px;display:flex;flex-direction:column;gap:9px">
+                  <sc-for list="{{ pendItens }}" as="p" hint-placeholder-count="3">
+                    <div style="border:1px solid #e6ebe9;border-radius:9px;padding:9px 10px">
+                      <div style="display:flex;align-items:center;gap:9px">
+                        <button onClick="{{ p.toggle }}" title="Marcar como tratada / pendente" style="width:26px;height:26px;border-radius:7px;border:1px solid {{ p.icBd }};background:{{ p.icBg }};color:{{ p.icFg }};font-size:13px;font-weight:700;line-height:1;flex-shrink:0;padding:0">{{ p.ic }}</button>
+                        <span style="flex:1;font-size:12.5px;font-weight:600">{{ p.t }}</span>
+                        <span style="font-size:10px;font-weight:600;color:{{ p.stFg }};text-transform:uppercase;letter-spacing:0.04em">{{ p.stLb }}</span>
+                      </div>
+                      <input value="{{ p.det }}" onChange="{{ p.setDet }}" placeholder="Detalhamento da tratativa…" style="width:100%;margin-top:8px;padding:6px 8px;border:1px solid #e2e8e5;border-radius:7px;font-size:11.5px;background:#fbfcfc">
+                      <button onClick="{{ p.anexar }}" style="margin-top:7px;font-size:11px;font-weight:600;color:#3c4a45;background:#f2f5f4;border:1px solid #e2e8e5;border-radius:7px;padding:4px 9px">+ Anexo{{ p.anxLb }}</button>
+                    </div>
+                  </sc-for>
+                  <div style="font-size:11px;color:#71807a;line-height:1.5;background:#f7f9f8;border-radius:8px;padding:9px 11px">Ao tratar <b>todas</b> as pendências, o serviço retorna automaticamente para <b>01. Aguardando Conferência</b>.</div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ focoOff }}" hint-placeholder-val="{{ true }}">
+                <div style="padding:28px 18px;font-size:12px;color:#8a9791;text-align:center;line-height:1.6">Selecione um serviço na lista para tratar as pendências.</div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ telaSim }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="{{ titulo }}" style="display:flex;flex-direction:column;gap:14px;max-width:1420px">
+          <div style="background:#fdf6e8;border:1px solid #eadfc0;border-radius:10px;padding:11px 14px;font-size:12px;color:#7a5c17;display:flex;gap:10px;align-items:baseline"><b style="font-size:10px;letter-spacing:0.06em;white-space:nowrap">EM DEFINIÇÃO</b><span>Esboço não fornecido para esta tela — lista mínima provisória. Regras e ações a definir com o time (ver Premissas).</span></div>
+          <div style="background:#fff;border:1px solid #e2e8e5;border-radius:10px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:170px minmax(150px,1fr) 170px 80px 54px 110px 60px;gap:10px;align-items:center;padding:9px 14px;background:#f7f9f8;border-bottom:1px solid #e2e8e5;font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#71807a">
+              <span>Status</span><span>Serviço</span><span>Contrato</span><span>Nota</span><span>Data</span><span style="text-align:right">Valor</span><span>SLA</span>
+            </div>
+            <sc-for list="{{ rowsSim }}" as="r" hint-placeholder-count="3">
+              <div onClick="{{ r.abrir }}" title="Clique para abrir o detalhamento" style="display:grid;grid-template-columns:170px minmax(150px,1fr) 170px 80px 54px 110px 60px;gap:10px;align-items:center;padding:var(--rp,7px) 14px;border-bottom:1px solid #eef1f0;cursor:pointer;font-size:12px;background:#fff" style-hover="background:#f2f5f4">
+                <span title="{{ r.cNome }}" style="display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:3px 7px 3px 4px;border-radius:6px;background:{{ r.cBg }};color:{{ r.cFg }};font-size:10.5px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden"><span style="background:rgba(255,255,255,0.75);border-radius:4px;padding:1px 4px;font-family:'Spline Sans Mono',monospace;font-size:9.5px;font-weight:600">{{ r.cNum }}</span><span style="overflow:hidden;text-overflow:ellipsis">{{ r.cNome }}</span></span>
+                <span style="min-width:0"><span style="display:block;font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:600">{{ r.id }}</span><span style="display:block;font-size:10.5px;color:#71807a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.ob }} · {{ r.tp }}</span></span>
+                <span style="font-size:11px;color:#5b6b65;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.ctLb }}</span>
+                <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#5b6b65">{{ r.nota }}</span>
+                <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#5b6b65">{{ r.data }}</span>
+                <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:600;text-align:right">{{ r.valor }}</span>
+                <span title="{{ r.slaTip }}" style="justify-self:start;font-family:'Spline Sans Mono',monospace;font-size:11px;font-weight:600;padding:3px 7px;border-radius:6px;background:{{ r.sBg }};color:{{ r.sFg }}">{{ r.slaLb }}</span>
+              </div>
+            </sc-for>
+            <sc-if value="{{ simVazia }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:18px 14px;font-size:12px;color:#8a9791">Nenhum serviço nesta etapa com os filtros atuais.</div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ telaRel }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="Consultas + Relatórios" style="max-width:720px;background:#fff;border:1px solid #e2e8e5;border-radius:10px;padding:22px 24px">
+          <div style="font-size:14px;font-weight:700">Consultas + Relatórios</div>
+          <p style="font-size:12.5px;color:#5b6b65;line-height:1.6;margin:10px 0 0;text-wrap:pretty">O descritivo desta área ainda não foi produzido. Espaço reservado para consultas por serviço e relatórios gerenciais (tempos por etapa, gargalos, valores por status). Conteúdo a definir com o time — ver <span onClick="{{ abrirPremissas }}" style="color:var(--ac,#1c5f4b);font-weight:600;cursor:pointer">Premissas</span>.</p>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+  <sc-if value="{{ scrimOn }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ fecharTudo }}" style="position:fixed;inset:0;background:rgba(16,24,21,0.38);z-index:50;animation:omFade 0.18s ease"></div>
+  </sc-if>
+  <sc-if value="{{ dOn }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Detalhamento do serviço" style="position:fixed;top:0;right:0;bottom:0;width:500px;background:#fff;z-index:60;box-shadow:-18px 0 40px rgba(10,20,16,0.18);display:flex;flex-direction:column;animation:omSlide 0.2s ease">
+      <div style="padding:16px 20px;border-bottom:1px solid #e2e8e5;display:flex;align-items:flex-start;gap:12px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:'Spline Sans Mono',monospace;font-size:16px;font-weight:700">{{ det.id }}</span><span style="font-family:'Spline Sans Mono',monospace;font-size:13px;font-weight:600;color:#3c4a45">{{ det.valor }}</span></div>
+          <div style="margin-top:8px"><span style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px 3px 4px;border-radius:6px;background:{{ det.cBg }};color:{{ det.cFg }};font-size:11px;font-weight:600"><span style="background:rgba(255,255,255,0.75);border-radius:4px;padding:1px 4px;font-family:'Spline Sans Mono',monospace;font-size:10px;font-weight:600">{{ det.cNum }}</span>{{ det.cNome }}</span></div>
+        </div>
+        <button onClick="{{ fecharDrawer }}" title="Fechar (Esc)" style="border:1px solid #d7dedb;background:#fff;border-radius:8px;width:28px;height:28px;font-size:14px;line-height:1;color:#5b6b65;padding:0">×</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:16px 20px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px 14px">
+          <div><div style="font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8a9791">Contrato</div><div style="font-size:12px;margin-top:2px">{{ det.contrato }}</div></div>
+          <div><div style="font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8a9791">Obra</div><div style="font-size:12px;margin-top:2px">{{ det.ob }}</div></div>
+          <div><div style="font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8a9791">Tipo de serviço</div><div style="font-size:12px;margin-top:2px">{{ det.tp }}</div></div>
+          <div><div style="font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8a9791">Área responsável</div><div style="font-size:12px;margin-top:2px">{{ det.area }}</div></div>
+          <div><div style="font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8a9791">Nota</div><div style="font-size:12px;margin-top:2px;font-family:'Spline Sans Mono',monospace">{{ det.nota }}</div></div>
+          <div><div style="font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8a9791">Entrou na etapa</div><div style="font-size:12px;margin-top:2px;font-family:'Spline Sans Mono',monospace">{{ det.data }}</div></div>
+          <div><div style="font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8a9791">Tempo na etapa</div><div style="font-size:12px;margin-top:2px;font-weight:600;color:{{ det.tempoFg }}">{{ det.tempo }}</div></div>
+          <div><div style="font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8a9791">SLA da etapa</div><div style="font-size:12px;margin-top:2px">{{ det.slaLb }}</div></div>
+        </div>
+        <div style="font-size:12px;font-weight:700;margin-top:20px;padding-top:14px;border-top:1px solid #eef1f0">Atividades · Baremo</div>
+        <div style="display:grid;grid-template-columns:minmax(120px,1fr) 30px 80px 80px 82px;gap:8px;padding:7px 0 5px;font-size:9.5px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8a9791">
+          <span>Atividade</span><span>Qtd</span><span style="text-align:right">Medido</span><span style="text-align:right">Pago</span><span style="text-align:right">Δ</span>
+        </div>
+        <sc-for list="{{ baremo }}" as="b" hint-placeholder-count="3">
+          <div style="display:grid;grid-template-columns:minmax(120px,1fr) 30px 80px 80px 82px;gap:8px;align-items:center;padding:6px 0;border-top:1px solid #f2f5f4;font-size:11.5px">
+            <span style="min-width:0"><span style="font-family:'Spline Sans Mono',monospace;font-size:10.5px;color:#8a9791">{{ b.cod }}</span> {{ b.desc }}</span>
+            <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#5b6b65">{{ b.qtd }}</span>
+            <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;text-align:right">{{ b.med }}</span>
+            <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;text-align:right">{{ b.pago }}</span>
+            <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;text-align:right;font-weight:600;color:{{ b.difFg }}">{{ b.dif }}</span>
+          </div>
+        </sc-for>
+        <div style="display:grid;grid-template-columns:minmax(120px,1fr) 30px 80px 80px 82px;gap:8px;align-items:center;padding:7px 0;border-top:1px solid #e2e8e5;font-size:11.5px;font-weight:700">
+          <span>Total</span><span></span>
+          <span style="font-family:'Spline Sans Mono',monospace;text-align:right">{{ bTotMed }}</span>
+          <span style="font-family:'Spline Sans Mono',monospace;text-align:right">{{ bTotPago }}</span><span></span>
+        </div>
+        <div style="font-size:10.5px;color:#8a9791;margin-top:4px">Valor pago preenchido após a conciliação.</div>
+        <sc-if value="{{ pendDetOn }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:12px;font-weight:700;margin-top:20px;padding-top:14px;border-top:1px solid #eef1f0">Pendências</div>
+          <sc-for list="{{ pendDet }}" as="pd" hint-placeholder-count="2">
+            <div style="display:flex;gap:10px;align-items:baseline;padding:6px 0;border-top:1px solid #f2f5f4;font-size:11.5px">
+              <span style="font-weight:600;width:92px;flex-shrink:0">{{ pd.t }}</span>
+              <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:{{ pd.fg }};width:64px;flex-shrink:0">{{ pd.lb }}</span>
+              <span style="color:#5b6b65">{{ pd.txt }}</span>
+            </div>
+          </sc-for>
+        </sc-if>
+        <div style="font-size:12px;font-weight:700;margin-top:20px;padding-top:14px;border-top:1px solid #eef1f0">Histórico de etapas</div>
+        <div style="margin-top:6px">
+          <sc-for list="{{ hist }}" as="h" hint-placeholder-count="4">
+            <div style="display:flex;gap:10px;padding:6px 0;align-items:center">
+              <span style="width:8px;height:8px;border-radius:50%;background:{{ h.dot }};flex-shrink:0"></span>
+              <span style="background:{{ h.bg }};color:{{ h.fg }};border-radius:4px;padding:1px 5px;font-family:'Spline Sans Mono',monospace;font-size:10px;font-weight:600">{{ h.num }}</span>
+              <span style="flex:1;font-size:12px;color:#3c4a45">{{ h.nome }} <span style="font-size:10.5px;color:#8a9791">{{ h.cur }}</span></span>
+              <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#8a9791">{{ h.data }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="padding:14px 20px;border-top:1px solid #e2e8e5;background:#fbfcfc">
+        <div style="font-size:11px;color:#71807a;line-height:1.5;text-wrap:pretty">Edição de dados e fotos permanecem no GPM (repositório oficial). Aqui: avanço de etapa, tratativa de pendências e consulta.</div>
+        <div style="display:flex;gap:9px;margin-top:10px">
+          <button onClick="{{ abrirGpm }}" style="flex:1;background:var(--ac,#1c5f4b);color:#fff;border:none;border-radius:8px;padding:9px 12px;font-size:12.5px;font-weight:600" style-hover="filter:brightness(1.12)">Abrir no GPM ↗</button>
+          <button onClick="{{ fecharDrawer }}" style="background:#fff;color:#3c4a45;border:1px solid #d7dedb;border-radius:8px;padding:9px 14px;font-size:12.5px;font-weight:600" style-hover="background:#f2f5f4">Fechar</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ prOn }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Premissas assumidas" style="position:fixed;top:0;right:0;bottom:0;width:470px;background:#fff;z-index:60;box-shadow:-18px 0 40px rgba(10,20,16,0.18);display:flex;flex-direction:column;animation:omSlide 0.2s ease">
+      <div style="padding:16px 20px;border-bottom:1px solid #e2e8e5;display:flex;align-items:flex-start;gap:12px">
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:700">Premissas assumidas</div>
+          <div style="font-size:11.5px;color:#71807a;margin-top:3px;line-height:1.5">Pontos sem definição no descritivo — para validação com o time.</div>
+        </div>
+        <button onClick="{{ fecharPremissas }}" title="Fechar (Esc)" style="border:1px solid #d7dedb;background:#fff;border-radius:8px;width:28px;height:28px;font-size:14px;line-height:1;color:#5b6b65;padding:0">×</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:10px 20px 20px">
+        <sc-for list="{{ prItens }}" as="p" hint-placeholder-count="11">
+          <div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #f2f5f4;font-size:12.5px;line-height:1.55;color:#3c4a45">
+            <span style="color:#8a9791;font-family:'Spline Sans Mono',monospace;font-size:11px;padding-top:1px;flex-shrink:0">{{ p.n }}</span>
+            <span style="text-wrap:pretty">{{ p.t }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:26px;transform:translate(-50%,0);background:#1f2a26;color:#f0f4f2;font-size:12.5px;padding:11px 18px;border-radius:10px;z-index:80;box-shadow:0 10px 30px rgba(10,20,16,0.3);animation:omRise 0.22s ease;max-width:560px;text-align:center">{{ toastMsg }}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;acento&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#1c5f4b&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#1c5f4b&quot;,&quot;#274690&quot;,&quot;#37474f&quot;,&quot;#7a3b2e&quot;],&quot;section&quot;:&quot;Aparência&quot;},&quot;densidade&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;compacta&quot;,&quot;options&quot;:[&quot;compacta&quot;,&quot;confortavel&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Aparência&quot;},&quot;menuRecolhido&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Aparência&quot;}}">
+return window.initSIGES(DCLogic);
+</script>
+</body>
+</html>

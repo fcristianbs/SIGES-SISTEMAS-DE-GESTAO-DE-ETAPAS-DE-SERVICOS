@@ -1,0 +1,9 @@
+html,body{margin:0;padding:0;background:#edf0ef;color:#1f2a26;font-family:'Public Sans',system-ui,sans-serif}
+*,*::before,*::after{box-sizing:border-box}
+a{color:#1c5f4b;text-decoration:none}a:hover{color:#134634;text-decoration:underline}
+input,select,button,textarea{font-family:'Public Sans',system-ui,sans-serif}
+button{cursor:pointer}
+::selection{background:rgba(28,95,75,0.18)}
+@keyframes omSlide{from{transform:translateX(26px);opacity:0}to{transform:none;opacity:1}}
+@keyframes omFade{from{opacity:0}to{opacity:1}}
+@keyframes omRise{from{transform:translate(-50%,12px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
