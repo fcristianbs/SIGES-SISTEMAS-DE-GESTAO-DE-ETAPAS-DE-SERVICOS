@@ -1,63 +1,55 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
+import os
+import sys
 
-app = Flask(__name__)
-CORS(app) # Habilita CORS para o front-end SPA
+# Garante a importação do módulo data.py independente de onde o servidor for executado
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from data import PERFIS_DB, USUARIOS_DB, SERVICOS_DB
 
-# --- DADOS MOCK EM MEMÓRIA ---
-PERFIS_DB = {
-    "Master": {
-        "nome": "Master",
-        "descricao": "Administrador Master com controle total de acessos",
-        "is_master": True,
-        "telas": ["gerencial", "medicao", "pendencias", "faturamento", "conciliacoes", "finalizados", "relatorios", "gestao_acessos"]
-    },
-    "Fechamento": {
-        "nome": "Fechamento",
-        "descricao": "Gestão de medições e fechamento de serviços",
-        "is_master": False,
-        "telas": ["gerencial", "medicao", "pendencias", "finalizados", "relatorios"]
-    },
-    "Operação": {
-        "nome": "Operação",
-        "descricao": "Tratativa de pendências operacionais",
-        "is_master": False,
-        "telas": ["gerencial", "pendencias", "finalizados", "relatorios"]
-    },
-    "Faturamento": {
-        "nome": "Faturamento",
-        "descricao": "Acesso às etapas de faturamento e conciliação",
-        "is_master": False,
-        "telas": ["gerencial", "medicao", "pendencias", "faturamento", "conciliacoes", "finalizados", "relatorios"]
-    }
-}
+app = Flask(__name__, static_folder="../frontend")
+CORS(app) # Habilita CORS para requisições do front-end SPA
 
-USUARIOS_DB = [
-    {"id": 1, "nome": "Administrador Master", "email": "admin@cosampa.com.br", "perfil": "Master"},
-    {"id": 2, "nome": "Carlos Fechamento", "email": "carlos@cosampa.com.br", "perfil": "Fechamento"},
-    {"id": 3, "nome": "Fernanda Operação", "email": "fernanda@cosampa.com.br", "perfil": "Operação"},
-    {"id": 4, "nome": "Roberto Faturamento", "email": "roberto@cosampa.com.br", "perfil": "Faturamento"}
-]
-
-SERVICOS_DB = [
-    {"id": "SOB-2026-0341", "ct": "A", "ob": "Vila Prudente", "tp": "Rede", "st": 1, "v": 12400.0, "d": 11, "nota": "NM-0873"},
-    {"id": "SOB-2026-0347", "ct": "A", "ob": "Vila Prudente", "tp": "Medidor", "st": 1, "v": 980.0, "d": 8, "nota": "NM-0879"},
-    {"id": "SOB-2026-0352", "ct": "B", "ob": "Jd. Ângela", "tp": "Transformador", "st": 1, "v": 38200.0, "d": 12, "nota": "NM-0881"},
-    {"id": "SOB-2026-0298", "ct": "A", "ob": "Penha", "tp": "Rede", "st": 2, "v": 21500.0, "d": 4, "pend": [{"t": "Fotos", "tr": False}, {"t": "Materiais", "tr": False}]},
-    {"id": "SOB-2026-0301", "ct": "B", "ob": "Capela do Socorro", "tp": "Ramal", "st": 2, "v": 3400.0, "d": 7, "pend": [{"t": "Documentos", "tr": False}, {"t": "Retorno", "tr": False}]},
-    {"id": "SOB-2026-0315", "ct": "C", "ob": "Itaquera", "tp": "Poste", "st": 2, "v": 7250.0, "d": 10, "pend": [{"t": "Fotos", "tr": False}]},
-    {"id": "SOB-2026-0289", "ct": "A", "ob": "Penha", "tp": "Rede", "st": 3, "v": 45900.0, "d": 12, "nota": "NM-0851"},
-    {"id": "SOB-2026-0276", "ct": "A", "ob": "Mooca", "tp": "Rede", "st": 4, "v": 78500.0, "d": 6, "nota": "NM-0812"},
-    {"id": "SOB-2026-0269", "ct": "B", "ob": "Parelheiros", "tp": "Rede", "st": 5, "v": 18700.0, "d": 11, "nota": "NM-0842", "ret": "Baremo divergente"},
-    {"id": "SOB-2026-0248", "ct": "A", "ob": "Belém", "tp": "Rede", "st": 7, "v": 52000.0, "d": 11, "nota": "NM-0790"},
-    {"id": "SOB-2026-0237", "ct": "B", "ob": "Santo Amaro", "tp": "Rede", "st": 8, "v": 66800.0, "d": 3, "nota": "NF-4521"},
-    {"id": "SOB-2026-0216", "ct": "A", "ob": "Sapopemba", "tp": "Rede", "st": 10, "v": 33500.0, "d": 6, "nota": "NF-4460", "ret": "Divergência R$ 1.240"},
-    {"id": "SOB-2026-0187", "ct": "A", "ob": "Sé", "tp": "Rede", "st": 13, "v": 15300.0, "d": 8, "nota": "NF-4432"}
-]
-
-# --- ENDPOINTS FLASK API ---
+# --- ROTA DE SERVIR PÁGINAS E ARQUIVOS ESTÁTICOS DO FRONTEND ---
 @app.route("/")
-def home():
+def serve_root():
+    return send_from_directory(app.static_folder, "login.html")
+
+@app.route("/<path:path>")
+def serve_static(path):
+    if os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    return send_from_directory(app.static_folder, "login.html")
+
+# --- ENDPOINT DE AUTENTICAÇÃO / LOGIN ---
+@app.route("/api/auth/login", methods=["POST"])
+def auth_login():
+    data = request.json or {}
+    email = data.get("email", "").strip().lower()
+    
+    # Busca usuário cadastrado ou cria sessão de teste
+    user = next((u for u in USUARIOS_DB if u["email"].lower() == email), None)
+    if not user:
+        user = {
+            "id": len(USUARIOS_DB) + 1,
+            "nome": email.split("@")[0].title(),
+            "email": email,
+            "perfil": "Master",
+            "telas_custom": None
+        }
+        USUARIOS_DB.append(user)
+
+    perfil = PERFIS_DB.get(user["perfil"], PERFIS_DB["Master"])
+
+    return jsonify({
+        "status": "sucesso",
+        "usuario": user,
+        "perfil": perfil
+    })
+
+# --- ENDPOINTS FLASK REST API ---
+@app.route("/api/status", methods=["GET"])
+def status_api():
     return jsonify({"app": "SIGES - API Flask Enxuta", "status": "online"})
 
 @app.route("/api/servicos", methods=["GET"])
@@ -88,9 +80,11 @@ def listar_servicos():
 def kpis():
     ativos = [s for s in SERVICOS_DB if s["st"] not in (13, 14, 15)]
     valor_total = sum(s["v"] for s in ativos)
+    estourados = [s for s in ativos if s.get("d", 0) > 5]
     return jsonify({
         "servicos_ativos": len(ativos),
         "valor_esteira": valor_total,
+        "sla_estourado_count": len(estourados),
         "total_geral": len(SERVICOS_DB)
     })
 
@@ -103,12 +97,22 @@ def gerenciar_usuarios():
             "id": len(USUARIOS_DB) + 1,
             "nome": data.get("nome", "Novo Usuário"),
             "email": data.get("email", ""),
-            "perfil": data.get("perfil", "Operação")
+            "perfil": data.get("perfil", "Operação"),
+            "telas_custom": None
         }
         USUARIOS_DB.append(novo)
         return jsonify(novo), 201
 
     return jsonify(USUARIOS_DB)
+
+@app.route("/api/usuarios/<int:user_id>/permissoes", methods=["PUT"])
+def atualizar_permissoes_usuario(user_id):
+    user = next((u for u in USUARIOS_DB if u["id"] == user_id), None)
+    if not user:
+        return jsonify({"erro": "Usuário não encontrado"}), 404
+    data = request.json or {}
+    user["telas_custom"] = data.get("telas", [])
+    return jsonify(user)
 
 @app.route("/api/perfis", methods=["GET"])
 def listar_perfis():
@@ -123,4 +127,5 @@ def atualizar_permissoes(nome_perfil):
     return jsonify(PERFIS_DB[nome_perfil])
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8000)
+    print("Servidor Flask SIGES iniciado em http://localhost:8000")
+    app.run(debug=True, host="0.0.0.0", port=5001)

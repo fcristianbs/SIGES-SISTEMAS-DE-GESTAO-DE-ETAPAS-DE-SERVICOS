@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SIGES - Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page-id="login">
+
+  <div class="login-wrapper">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-logo">C</div>
+        <h2>Cosampa</h2>
+        <p>SIGES · Sistema de Gestão de Etapas de Serviços</p>
+      </div>
+
+      <form id="form-login" style="margin-top:20px">
+        <div style="margin-bottom:14px">
+          <label style="display:block;font-size:11.5px;font-weight:600;color:#5b6b65;margin-bottom:4px">E-MAIL CORPORATIVO</label>
+          <input type="email" id="login-email" class="text-input" value="admin@cosampa.com.br" required style="width:100%">
+        </div>
+
+        <div style="margin-bottom:18px">
+          <label style="display:block;font-size:11.5px;font-weight:600;color:#5b6b65;margin-bottom:4px">SENHA DE ACESSO</label>
+          <input type="password" id="login-senha" class="text-input" value="123456" required style="width:100%">
+        </div>
+
+        <button type="submit" class="btn-primary" style="width:100%;padding:10px;font-size:13px">Entrar no Sistema</button>
+      </form>
+
+      <div style="margin-top:24px;border-top:1px solid var(--border-subtle);padding-top:16px">
+        <div style="font-size:11px;font-weight:600;color:#8a9791;text-transform:uppercase;margin-bottom:10px;text-align:center">Acesso Rápido para Testes (1 Clique)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="btn-quick-login btn-secondary" data-email="admin@cosampa.com.br" style="font-size:11px">★ Master</button>
+          <button class="btn-quick-login btn-secondary" data-email="carlos@cosampa.com.br" style="font-size:11px">01 Fechamento</button>
+          <button class="btn-quick-login btn-secondary" data-email="fernanda@cosampa.com.br" style="font-size:11px">02 Operação</button>
+          <button class="btn-quick-login btn-secondary" data-email="roberto@cosampa.com.br" style="font-size:11px">03 Faturamento</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
