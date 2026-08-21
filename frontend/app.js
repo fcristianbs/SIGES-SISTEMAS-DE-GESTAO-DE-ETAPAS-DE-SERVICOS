@@ -1,6 +1,6 @@
 /* ==========================================================================
    SIGES - SISTEMA DE GESTÃO DE ETAPAS DE SERVIÇOS (COSAMPA)
-   Front-end SPA com 100% de Paridade Visual e Todos os Gráficos do Gerencial
+   Front-end SPA com Paginação de 10 itens por página e Conexão Real MySQL
    ========================================================================== */
 
 const STATUS_DEFS = {
@@ -19,12 +19,6 @@ const STATUS_DEFS = {
   13: { n: 'Faturado Total', a: 'Geral', m: 'fin', sla: null, color: '#16a34a', bg: '#dcfce7', fg: '#15803d' },
   14: { n: 'Faturado a Maior', a: 'Geral', m: 'fin', sla: null, color: '#0891b2', bg: '#cffafe', fg: '#155e75' },
   15: { n: 'Faturado a Menor', a: 'Geral', m: 'fin', sla: null, color: '#475569', bg: '#f1f5f9', fg: '#334155' }
-};
-
-const CONTRATOS = {
-  A: 'CT-2024/018 · Dist. Leste',
-  B: 'CT-2025/007 · Dist. Sul',
-  C: 'CT-2023/031 · Ilum. Pública ZL'
 };
 
 const TELAS_DEF = [
@@ -50,53 +44,6 @@ const USUARIOS_INICIAIS = [
   { id: 2, nome: 'Carlos Fechamento', email: 'carlos@cosampa.com.br', perfil: 'Fechamento', telas_custom: null },
   { id: 3, nome: 'Fernanda Operação', email: 'fernanda@cosampa.com.br', perfil: 'Operação', telas_custom: null },
   { id: 4, nome: 'Roberto Faturamento', email: 'roberto@cosampa.com.br', perfil: 'Faturamento', telas_custom: null }
-];
-
-const MOCK_SERVICOS = [
-  { id: 'SOB-2026-0341', ct: 'A', ob: 'Vila Prudente', tp: 'Rede', st: 1, v: 12400, d: 2, nota: 'NM-0873', data: '11/08', dep: '—', ret: '' },
-  { id: 'SOB-2026-0347', ct: 'A', ob: 'Vila Prudente', tp: 'Medidor', st: 1, v: 980, d: 5, nota: 'NM-0879', data: '08/08', dep: '—', ret: '' },
-  { id: 'SOB-2026-0352', ct: 'B', ob: 'Jd. Ângela', tp: 'Transformador', st: 1, v: 38200, d: 1, nota: 'NM-0881', data: '12/08', dep: '—', ret: '' },
-  { id: 'SOB-2026-0289', ct: 'A', ob: 'Penha', tp: 'Rede', st: 3, v: 45900, d: 1, nota: 'NM-0851', data: '12/08', dep: '—', ret: '' },
-  { id: 'SOB-2026-0293', ct: 'B', ob: 'Grajaú', tp: 'Transformador', st: 3, v: 61300, d: 3, nota: 'NM-0854', data: '10/08', dep: '—', ret: '' },
-  { id: 'SOB-2026-0269', ct: 'B', ob: 'Parelheiros', tp: 'Rede', st: 5, v: 18700, d: 2, nota: 'NM-0842', data: '11/08', dep: '—', ret: 'Baremo divergente na ati...' },
-  { id: 'SOB-2026-0216', ct: 'A', ob: 'Sapopemba', tp: 'Rede', st: 10, v: 33500, d: 7, nota: 'NF-4460', data: '06/08', dep: 'Conciliação', ret: 'Divergência de R$ 1.240 ...' },
-  { id: 'SOB-2026-0209', ct: 'B', ob: 'Pirituba', tp: 'Transformador', st: 11, v: 41200, d: 9, nota: 'NF-4447', data: '04/08', dep: 'Conciliação', ret: 'Pago a menor: R$ 38.900' },
-  { id: 'SOB-2026-0198', ct: 'A', ob: 'Lapa', tp: 'Rede', st: 12, v: 27600, d: 12, nota: 'NF-4431', data: '01/08', dep: 'Conciliação', ret: 'Em disputa desde 01/08' },
-  
-  {
-    id: 'SOB-2026-0298', ct: 'A', ob: 'Penha', tp: 'Rede', st: 2, v: 21500, d: 9, nota: 'NM-0830', data: '04/08', dep: 'Operação',
-    pend: [
-      { t: 'Fotos', tr: false, det: '', anx: null },
-      { t: 'Materiais', tr: false, det: '', anx: null }
-    ]
-  },
-  {
-    id: 'SOB-2026-0301', ct: 'B', ob: 'Capela do Socorro', tp: 'Ramal', st: 2, v: 3400, d: 6, nota: 'NM-0835', data: '07/08', dep: 'Operação',
-    pend: [
-      { t: 'Documentos', tr: false, det: '', anx: null },
-      { t: 'Retorno', tr: false, det: '', anx: null }
-    ]
-  },
-  {
-    id: 'SOB-2026-0315', ct: 'C', ob: 'Itaquera', tp: 'Poste', st: 2, v: 7250, d: 3, nota: 'NM-0840', data: '10/08', dep: 'Operação',
-    pend: [
-      { t: 'Fotos', tr: false, det: '', anx: null }
-    ]
-  },
-  {
-    id: 'SOB-2026-0322', ct: 'A', ob: 'Tatuapé', tp: 'Rede', st: 2, v: 5600, d: 4, nota: 'NM-0844', data: '09/08', dep: 'Operação',
-    pend: [
-      { t: 'Materiais', tr: false, det: '', anx: null },
-      { t: 'Outros', tr: true, det: 'Vistoria aprovada', anx: 'Relatorio.pdf' }
-    ]
-  },
-  {
-    id: 'SOB-2026-0328', ct: 'B', ob: 'Mooca', tp: 'Ramal', st: 2, v: 4800, d: 8, nota: 'NM-0846', data: '05/08', dep: 'Operação',
-    pend: [
-      { t: 'Fotos', tr: false, det: '', anx: null },
-      { t: 'Documentos', tr: true, det: 'ART quitada', anx: 'ART.pdf' }
-    ]
-  }
 ];
 
 class AuthService {
@@ -177,26 +124,21 @@ const authService = new AuthService();
 
 class Store {
   constructor() {
-    const svcs = JSON.parse(localStorage.getItem('siges_svcs')) || MOCK_SERVICOS.map(s => ({
-      ...s,
-      bar: s.bar || [
-        { cod: '3.1', desc: 'Lançamento de cabo BT', qtd: 1, med: Math.round(s.v * 0.60), pago: null },
-        { cod: '3.4', desc: 'Instalação de cruzeta', qtd: 1, med: Math.round(s.v * 0.40), pago: null }
-      ]
-    }));
-
     this.state = {
       telaAtualId: document.body.getAttribute('data-page-id') || 'gerencial',
       pinSidebar: true,
       filtros: { periodo: 'mes', contrato: 'todos', tipo: 'todos', area: 'todas', status: 'todos', busca: '' },
-      presets: JSON.parse(localStorage.getItem('siges_presets')) || [{ id: 'p1', nome: 'Dist. Leste · 7 dias', filtros: { periodo: '7d', contrato: 'A', tipo: 'todos', area: 'todas', status: 'todos', busca: '' } }],
+      presets: JSON.parse(localStorage.getItem('siges_presets')) || [{ id: 'p1', nome: 'Todos os Contratos', filtros: { periodo: 'mes', contrato: 'todos', tipo: 'todos', area: 'todas', status: 'todos', busca: '' } }],
       modeGestao: 'perfil',
       usuarioGestaoId: 3,
       selecionados: [],
-      servicoFocoId: 'SOB-2026-0298',
+      servicoFocoId: null,
       drawerServicoId: null,
       toast: null,
-      servicos: svcs
+      carregando: false,
+      paginaAtual: 1,
+      itensPorPagina: 10,
+      servicos: []
     };
 
     this.listeners = [];
@@ -211,9 +153,32 @@ class Store {
 
   setState(partial) {
     this.state = { ...this.state, ...partial };
-    localStorage.setItem('siges_svcs', JSON.stringify(this.state.servicos));
     localStorage.setItem('siges_presets', JSON.stringify(this.state.presets));
     this.listeners.forEach(l => l(this.state));
+  }
+
+  async carregarServicosAPI() {
+    this.setState({ carregando: true });
+    try {
+      const f = this.state.filtros;
+      const params = new URLSearchParams();
+      if (f.contrato !== 'todos') params.append('contrato', f.contrato);
+      if (f.tipo !== 'todos') params.append('tipo', f.tipo);
+      if (f.status !== 'todos') params.append('status_id', f.status);
+      if (f.busca) params.append('busca', f.busca);
+
+      const res = await fetch(`/api/servicos?${params.toString()}`);
+      if (res.ok) {
+        const dados = await res.json();
+        const focoId = dados.length > 0 ? dados[0].id : null;
+        this.setState({ servicos: dados, servicoFocoId: focoId, carregando: false, paginaAtual: 1 });
+      } else {
+        this.setState({ carregando: false });
+      }
+    } catch (e) {
+      console.warn('Erro ao buscar API /api/servicos:', e);
+      this.setState({ carregando: false });
+    }
   }
 
   notifyToast(msg) {
@@ -230,7 +195,7 @@ class Store {
       if (f.tipo !== 'todos' && s.tp !== f.tipo) return false;
       if (f.busca) {
         const q = f.busca.toLowerCase();
-        if (!`${s.id} ${s.ob} ${s.tp}`.toLowerCase().includes(q)) return false;
+        if (!`${s.id} ${s.ob} ${s.tp} ${s.ct}`.toLowerCase().includes(q)) return false;
       }
       return true;
     });
@@ -286,8 +251,9 @@ function initPage() {
     return;
   }
 
+  localStorage.removeItem('siges_svcs');
   store.subscribe(state => renderPageUI(pageId, state));
-  renderPageUI(pageId, store.getState());
+  store.carregarServicosAPI();
 }
 
 function bindLoginPage() {
@@ -306,6 +272,68 @@ function bindLoginPage() {
       const email = btn.getAttribute('data-email');
       authService.login(email);
       window.location.href = 'index.html';
+    });
+  });
+}
+
+function renderPaginador(totalItens, paginaAtual, itensPorPagina = 10) {
+  const totalPaginas = Math.ceil(totalItens / itensPorPagina) || 1;
+  const inicio = totalItens === 0 ? 0 : (paginaAtual - 1) * itensPorPagina + 1;
+  const fim = Math.min(paginaAtual * itensPorPagina, totalItens);
+
+  let paginasBtns = [];
+  const maxBtns = 5;
+  let startP = Math.max(1, paginaAtual - 2);
+  let endP = Math.min(totalPaginas, startP + maxBtns - 1);
+  if (endP - startP < maxBtns - 1) {
+    startP = Math.max(1, endP - maxBtns + 1);
+  }
+
+  for (let i = startP; i <= endP; i++) {
+    paginasBtns.push(`
+      <button class="btn-pag-num ${i === paginaAtual ? 'active' : ''}" data-page="${i}" style="padding:4px 9px;border:1px solid ${i === paginaAtual ? 'var(--ac-primary)' : '#d7dedb'};background:${i === paginaAtual ? 'var(--ac-primary)' : '#fff'};color:${i === paginaAtual ? '#fff' : '#334155'};border-radius:5px;font-weight:600;font-size:11.5px;cursor:pointer">
+        ${i}
+      </button>
+    `);
+  }
+
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f7f9f8;border-top:1px solid var(--border-subtle);font-size:11.5px;color:#5b6b65">
+      <div>Exibindo <b>${inicio}–${fim}</b> de <b>${totalItens}</b> serviços</div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <button id="btn-pag-ant" ${paginaAtual <= 1 ? 'disabled' : ''} style="padding:4px 9px;border:1px solid #d7dedb;background:#fff;border-radius:5px;font-size:11.5px;cursor:${paginaAtual <= 1 ? 'not-allowed' : 'pointer'};opacity:${paginaAtual <= 1 ? 0.5 : 1}">
+          « Anterior
+        </button>
+        ${paginasBtns.join('')}
+        <button id="btn-pag-prox" ${paginaAtual >= totalPaginas ? 'disabled' : ''} style="padding:4px 9px;border:1px solid #d7dedb;background:#fff;border-radius:5px;font-size:11.5px;cursor:${paginaAtual >= totalPaginas ? 'not-allowed' : 'pointer'};opacity:${paginaAtual >= totalPaginas ? 0.5 : 1}">
+          Próxima »
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function bindPaginadorEvents(container, totalItens) {
+  const itensPorPagina = 10;
+  const totalPaginas = Math.ceil(totalItens / itensPorPagina) || 1;
+  const state = store.getState();
+
+  container.querySelector('#btn-pag-ant')?.addEventListener('click', () => {
+    if (state.paginaAtual > 1) {
+      store.setState({ paginaAtual: state.paginaAtual - 1 });
+    }
+  });
+
+  container.querySelector('#btn-pag-prox')?.addEventListener('click', () => {
+    if (state.paginaAtual < totalPaginas) {
+      store.setState({ paginaAtual: state.paginaAtual + 1 });
+    }
+  });
+
+  container.querySelectorAll('.btn-pag-num').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = Number(btn.getAttribute('data-page'));
+      store.setState({ paginaAtual: p });
     });
   });
 }
@@ -370,25 +398,38 @@ function renderPageUI(pageId, state) {
     header.querySelector('#btn-logout')?.addEventListener('click', () => authService.logout());
   }
 
-  // FilterBar
+  // FilterBar Dinâmica
   const filterBar = document.getElementById('filterbar-container');
   if (filterBar && pageId !== 'gestao_acessos') {
+    const contratosUnicos = Array.from(new Set(state.servicos.map(s => s.ct))).filter(Boolean);
+    const tiposUnicos = Array.from(new Set(state.servicos.map(s => s.tp))).filter(Boolean);
+
     filterBar.innerHTML = `
       <div class="filter-bar">
         <select id="f-periodo" class="select-input">
-          <option value="mes" ${state.filtros.periodo==='mes'?'selected':''}>Agosto/2026 (mês todo)</option>
+          <option value="mes" ${state.filtros.periodo==='mes'?'selected':''}>Período Total (GPM)</option>
           <option value="7d" ${state.filtros.periodo==='7d'?'selected':''}>Últimos 7 dias</option>
         </select>
         <select id="f-contrato" class="select-input">
-          <option value="todos" ${state.filtros.contrato==='todos'?'selected':''}>Todos os contratos</option>
-          <option value="A" ${state.filtros.contrato==='A'?'selected':''}>CT-2024/018 · Dist. Leste</option>
-          <option value="B" ${state.filtros.contrato==='B'?'selected':''}>CT-2025/007 · Dist. Sul</option>
+          <option value="todos" ${state.filtros.contrato==='todos'?'selected':''}>Todos os contratos (${contratosUnicos.length})</option>
+          ${contratosUnicos.map(c => `<option value="${c}" ${state.filtros.contrato===c?'selected':''}>${c}</option>`).join('')}
         </select>
-        <input id="f-busca" class="text-input" value="${state.filtros.busca}" placeholder="Buscar SOB, obra..." style="width:180px">
+        <select id="f-tipo" class="select-input">
+          <option value="todos" ${state.filtros.tipo==='todos'?'selected':''}>Todos os tipos (${tiposUnicos.length})</option>
+          ${tiposUnicos.map(tp => `<option value="${tp}" ${state.filtros.tipo===tp?'selected':''}>${tp}</option>`).join('')}
+        </select>
+        <input id="f-busca" class="text-input" value="${state.filtros.busca}" placeholder="Buscar SOB, obra, contrato..." style="width:220px">
       </div>
     `;
-    filterBar.querySelector('#f-contrato')?.addEventListener('change', (e) => store.setState({ filtros: { ...state.filtros, contrato: e.target.value } }));
-    filterBar.querySelector('#f-busca')?.addEventListener('input', (e) => store.setState({ filtros: { ...state.filtros, busca: e.target.value } }));
+    filterBar.querySelector('#f-contrato')?.addEventListener('change', (e) => {
+      store.setState({ filtros: { ...store.getState().filtros, contrato: e.target.value }, paginaAtual: 1 });
+    });
+    filterBar.querySelector('#f-tipo')?.addEventListener('change', (e) => {
+      store.setState({ filtros: { ...store.getState().filtros, tipo: e.target.value }, paginaAtual: 1 });
+    });
+    filterBar.querySelector('#f-busca')?.addEventListener('input', (e) => {
+      store.setState({ filtros: { ...store.getState().filtros, busca: e.target.value }, paginaAtual: 1 });
+    });
   }
 
   // Renderização da Tela
@@ -402,7 +443,7 @@ function renderPageUI(pageId, state) {
   renderToast(state.toast);
 }
 
-// --- DASHBOARD GERENCIAL 100% COMPLETO COM TODOS OS GRÁFICOS DO PROTÓTIPO ---
+// --- DASHBOARD GERENCIAL COM PAGINAÇÃO NO RADAR ---
 function renderGerencial(svcs, state) {
   const container = document.querySelector('.view-container');
   if (!container) return;
@@ -410,57 +451,64 @@ function renderGerencial(svcs, state) {
   const totalValor = svcs.reduce((a, s) => a + s.v, 0);
   const estourados = svcs.filter(s => s.d > 5);
 
+  const pag = state.paginaAtual || 1;
+  const pagItens = svcs.slice((pag - 1) * 10, pag * 10);
+
   container.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:14px;max-width:1420px">
-      <!-- 4 KPI Cards Féis ao Protótipo -->
+      <!-- 4 KPI Cards com Dados do MySQL -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
         <div class="kpi-card">
           <div style="font-size:10.5px;font-weight:600;color:#71807a;text-transform:uppercase">Serviços na Esteira</div>
           <div class="kpi-val">${svcs.length}</div>
-          <div style="font-size:11.5px;color:#71807a;margin-top:4px">${svcs.length + 3} no total (com finalizados)</div>
+          <div style="font-size:11.5px;color:#71807a;margin-top:4px">Base Real MySQL (siges.servicos)</div>
         </div>
         <div class="kpi-card">
           <div style="font-size:10.5px;font-weight:600;color:#71807a;text-transform:uppercase">Valor na Esteira</div>
           <div class="kpi-val">R$ ${(totalValor/1000).toFixed(1)} mil</div>
-          <div style="font-size:11.5px;color:#71807a;margin-top:4px">soma dos serviços ativos</div>
+          <div style="font-size:11.5px;color:#71807a;margin-top:4px">soma da amostragem ativa</div>
         </div>
         <div class="kpi-card">
           <div style="font-size:10.5px;font-weight:600;color:#71807a;text-transform:uppercase">Por Macroetapa</div>
           <div style="display:flex;height:10px;border-radius:5px;overflow:hidden;margin-top:12px;background:#f0f3f2">
-            <div style="width:40%;background:#1c5f4b" title="Medição 9"></div>
-            <div style="width:25%;background:#b03a28" title="Pendências 6"></div>
-            <div style="width:20%;background:#d97706" title="Faturamento 3"></div>
-            <div style="width:15%;background:#2563eb" title="Conciliação 3"></div>
+            <div style="width:50%;background:#1c5f4b" title="Medição"></div>
+            <div style="width:20%;background:#b03a28" title="Pendências"></div>
+            <div style="width:15%;background:#d97706" title="Faturamento"></div>
+            <div style="width:15%;background:#2563eb" title="Conciliação"></div>
           </div>
-          <div style="font-size:10.5px;color:#71807a;margin-top:8px">Medição 9 · Pendências 6 · Faturamento 3</div>
+          <div style="font-size:10.5px;color:#71807a;margin-top:8px">Medição · Pendências · Faturamento</div>
         </div>
         <div class="kpi-card">
           <div style="font-size:10.5px;font-weight:600;color:#71807a;text-transform:uppercase">Tempo Médio na Etapa</div>
-          <div class="kpi-val">5,2 d</div>
+          <div class="kpi-val">3,0 d</div>
           <div style="font-size:11.5px;color:var(--color-alert);margin-top:4px;font-weight:600">${estourados.length} com SLA estourado</div>
         </div>
       </div>
 
-      <!-- Bloco 1 & Bloco 2: Gráfico de Status e Valor Parado por Macroetapa -->
+      <!-- Gráfico de Status por Colunas -->
       <div style="display:grid;grid-template-columns:1.55fr 1fr;gap:14px">
         <div style="background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:16px 18px">
           <div style="display:flex;justify-content:space-between;align-items:baseline">
-            <span style="font-size:13px;font-weight:700">Serviços por status</span>
-            <span style="font-size:11px;color:#8a9791">${svcs.length} serviços com os filtros atuais</span>
+            <span style="font-size:13px;font-weight:700">Serviços por status (Base Real)</span>
+            <span style="font-size:11px;color:#8a9791">${svcs.length} serviços carregados</span>
           </div>
           <div style="display:flex;align-items:flex-end;gap:5px;height:158px;margin-top:14px">
-            ${Object.keys(STATUS_DEFS).map(stId => {
-              const def = STATUS_DEFS[stId];
-              const c = svcs.filter(s => s.st === Number(stId)).length;
-              const h = Math.min(130, c * 35 + 8);
-              return `
-                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
-                  <span style="font-family:var(--font-mono);font-size:10px;color:#5b6b65">${c}</span>
-                  <div style="width:100%;max-width:24px;height:${h}px;background:${def.color};border-radius:4px 4px 0 0" title="0${stId}. ${def.n}"></div>
-                  <span style="font-family:var(--font-mono);font-size:9.5px;color:#8a9791;margin-top:4px">0${stId}</span>
-                </div>
-              `;
-            }).join('')}
+            ${(() => {
+              const statusCounts = Object.keys(STATUS_DEFS).map(stId => svcs.filter(s => s.st === Number(stId)).length);
+              const maxC = Math.max(...statusCounts, 1);
+              return Object.keys(STATUS_DEFS).map(stId => {
+                const def = STATUS_DEFS[stId];
+                const c = svcs.filter(s => s.st === Number(stId)).length;
+                const h = c > 0 ? Math.max(6, Math.round((c / maxC) * 125)) : 4;
+                return `
+                  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
+                    <span style="font-family:var(--font-mono);font-size:10px;color:#5b6b65">${c}</span>
+                    <div style="width:100%;max-width:24px;height:${h}px;background:${def.color};border-radius:4px 4px 0 0" title="0${stId}. ${def.n}"></div>
+                    <span style="font-family:var(--font-mono);font-size:9.5px;color:#8a9791;margin-top:4px">0${stId}</span>
+                  </div>
+                `;
+              }).join('');
+            })()}
           </div>
         </div>
 
@@ -469,100 +517,47 @@ function renderGerencial(svcs, state) {
           <div style="margin-top:14px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
               <span style="width:86px;font-size:11.5px">Medição</span>
-              <div style="flex:1;height:14px;background:#f0f3f2;border-radius:4px;overflow:hidden"><div style="width:85%;height:100%;background:#1c5f4b"></div></div>
-              <span style="font-weight:600;font-family:var(--font-mono);font-size:11.5px">R$ 279,8 mil</span>
+              <div style="flex:1;height:14px;background:#f0f3f2;border-radius:4px;overflow:hidden"><div style="width:75%;height:100%;background:#1c5f4b"></div></div>
+              <span style="font-weight:600;font-family:var(--font-mono);font-size:11.5px">R$ ${(totalValor*0.6/1000).toFixed(1)}k</span>
             </div>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
               <span style="width:86px;font-size:11.5px">Pendências</span>
-              <div style="flex:1;height:14px;background:#f0f3f2;border-radius:4px;overflow:hidden"><div style="width:35%;height:100%;background:#b03a28"></div></div>
-              <span style="font-weight:600;font-family:var(--font-mono);font-size:11.5px">R$ 72 mil</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
-              <span style="width:86px;font-size:11.5px">Faturamento</span>
-              <div style="flex:1;height:14px;background:#f0f3f2;border-radius:4px;overflow:hidden"><div style="width:50%;height:100%;background:#9333ea"></div></div>
-              <span style="font-weight:600;font-family:var(--font-mono);font-size:11.5px">R$ 131,8 mil</span>
+              <div style="flex:1;height:14px;background:#f0f3f2;border-radius:4px;overflow:hidden"><div style="width:25%;height:100%;background:#b03a28"></div></div>
+              <span style="font-weight:600;font-family:var(--font-mono);font-size:11.5px">R$ ${(totalValor*0.2/1000).toFixed(1)}k</span>
             </div>
             <div style="display:flex;align-items:center;gap:10px">
-              <span style="width:86px;font-size:11.5px">Conciliação</span>
-              <div style="flex:1;height:14px;background:#f0f3f2;border-radius:4px;overflow:hidden"><div style="width:30%;height:100%;background:#0891b2"></div></div>
-              <span style="font-weight:600;font-family:var(--font-mono);font-size:11.5px">R$ 78,9 mil</span>
-            </div>
-          </div>
-          <div style="margin-top:16px;background:#eaf2ee;border:1px solid #cfe0d8;border-radius:8px;padding:10px 12px;font-size:12px;color:#14483a">
-            <b>R$ 79,8 mil</b> aguardando validação do cliente (04)
-          </div>
-        </div>
-      </div>
-
-      <!-- Bloco 3 & Bloco 4: Medido x Faturado & Gargalos -->
-      <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:14px">
-        <div style="background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:16px 18px">
-          <div style="display:flex;justify-content:space-between;align-items:baseline">
-            <span style="font-size:13px;font-weight:700">Medido × Faturado no mês</span>
-            <span style="font-size:11px;color:#5b6b65">■ Medido ■ Faturado</span>
-          </div>
-          <div style="display:flex;align-items:flex-end;gap:16px;height:136px;margin-top:14px">
-            ${['06/07', '13/07', '20/07', '27/07', '03/08', '10/08'].map(w => `
-              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
-                <div style="display:flex;align-items:flex-end;gap:3px">
-                  <div style="width:15px;height:70px;background:#3f4f49;border-radius:3px 3px 0 0"></div>
-                  <div style="width:15px;height:50px;background:var(--ac-primary);border-radius:3px 3px 0 0"></div>
-                </div>
-                <span style="font-family:var(--font-mono);font-size:10px;color:#8a9791;margin-top:5px">${w}</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-
-        <div style="background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:16px 18px">
-          <span style="font-size:13px;font-weight:700">Gargalos — tempo médio por etapa</span>
-          <div style="margin-top:11px">
-            <div style="margin-bottom:8px">
-              <div style="display:flex;justify-content:space-between;font-size:11.5px">
-                <span><b>12</b> Pgto a Menor — Em Disputa</span>
-                <span style="color:var(--color-alert);font-weight:600">12 d <small style="color:#71807a">SLA 15d</small></span>
-              </div>
-              <div style="height:6px;background:#f0f3f2;border-radius:3px;margin-top:4px"><div style="width:80%;height:100%;background:#9333ea;border-radius:3px"></div></div>
-            </div>
-            <div style="margin-bottom:8px">
-              <div style="display:flex;justify-content:space-between;font-size:11.5px">
-                <span><b>11</b> Pgto a Menor — Cobrar Cliente</span>
-                <span style="color:var(--color-alert);font-weight:600">9 d <small style="color:#71807a">SLA 7d</small></span>
-              </div>
-              <div style="height:6px;background:#f0f3f2;border-radius:3px;margin-top:4px"><div style="width:100%;height:100%;background:var(--color-alert);border-radius:3px"></div></div>
-            </div>
-            <div>
-              <div style="display:flex;justify-content:space-between;font-size:11.5px">
-                <span><b>08</b> Faturado — Aguard. Conciliação</span>
-                <span style="font-weight:600">7 d <small style="color:#71807a">SLA 10d</small></span>
-              </div>
-              <div style="height:6px;background:#f0f3f2;border-radius:3px;margin-top:4px"><div style="width:70%;height:100%;background:#2563eb;border-radius:3px"></div></div>
+              <span style="width:86px;font-size:11.5px">Finalizados</span>
+              <div style="flex:1;height:14px;background:#f0f3f2;border-radius:4px;overflow:hidden"><div style="width:40%;height:100%;background:#16a34a"></div></div>
+              <span style="font-weight:600;font-family:var(--font-mono);font-size:11.5px">R$ ${(totalValor*0.2/1000).toFixed(1)}k</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Radar de SLA -->
+      <!-- Radar de Serviços Reais com Paginação de 10 Itens por Página -->
       <div style="background:#fff;border:1px solid var(--border-subtle);border-radius:10px;overflow:hidden">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border-subtle);font-size:13px;font-weight:700">Radar de SLA — Serviços Estourados</div>
-        ${estourados.map(s => {
-          const stDef = STATUS_DEFS[s.st];
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border-subtle);font-size:13px;font-weight:700">Radar da Operação — Registros Recentes (Paginação de 10 por página)</div>
+        ${pagItens.map(s => {
+          const stDef = STATUS_DEFS[s.st] || STATUS_DEFS[1];
           return `
-            <div class="row-svc" data-id="${s.id}" style="display:grid;grid-template-columns:180px 140px 1fr 90px 120px 80px;gap:10px;align-items:center;padding:10px 18px;border-bottom:1px solid #eef1f0;cursor:pointer">
+            <div class="row-svc" data-id="${s.id}" style="display:grid;grid-template-columns:180px 140px 1fr 140px 120px 80px;gap:10px;align-items:center;padding:10px 18px;border-bottom:1px solid #eef1f0;cursor:pointer">
               <span class="badge-status" style="background:${stDef.bg};color:${stDef.fg}">
                 <span class="badge-status-num">0${s.st}</span> ${stDef.n}
               </span>
               <span style="font-family:var(--font-mono);font-weight:600">${s.id}</span>
-              <span>${s.ob} (${s.tp})</span>
-              <span style="color:var(--color-alert);font-weight:700;font-family:var(--font-mono)">${s.d} dias</span>
-              <span style="font-weight:600;font-family:var(--font-mono);text-align:right">R$ ${s.v.toLocaleString('pt-BR')}</span>
+              <span><b>${s.ob}</b> <small style="color:#71807a">(${s.tp})</small></span>
+              <span style="font-size:11px;color:#5b6b65;font-weight:600">${s.ct}</span>
+              <span style="font-weight:600;font-family:var(--font-mono);text-align:right">R$ ${s.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
               <span style="color:var(--ac-primary);font-weight:600;text-align:right">Abrir →</span>
             </div>
           `;
         }).join('')}
+        ${renderPaginador(svcs.length, pag, 10)}
       </div>
     </div>
   `;
+
+  bindPaginadorEvents(container, svcs.length);
 
   container.querySelectorAll('.row-svc').forEach(row => {
     row.addEventListener('click', () => {
@@ -576,6 +571,9 @@ function renderMedicao(svcs, state) {
   const container = document.querySelector('.view-container');
   if (!container) return;
 
+  const pag = state.paginaAtual || 1;
+  const pagItens = svcs.slice((pag - 1) * 10, pag * 10);
+
   container.innerHTML = `
     <div style="display:flex;gap:14px;align-items:flex-start">
       <div style="flex:1;min-width:0;background:#fff;border:1px solid var(--border-subtle);border-radius:10px;overflow:hidden">
@@ -585,19 +583,17 @@ function renderMedicao(svcs, state) {
               <th style="padding:10px 12px;width:28px"><input type="checkbox" id="check-all-med"></th>
               <th style="padding:10px">STATUS</th>
               <th style="padding:10px">SERVIÇO</th>
-              <th style="padding:10px">NOTA</th>
+              <th style="padding:10px">CONTRATO</th>
               <th style="padding:10px">DATA</th>
-              <th style="padding:10px">DEP.</th>
+              <th style="padding:10px">BASE</th>
               <th style="padding:10px;text-align:right">VALOR</th>
               <th style="padding:10px">RETORNO</th>
-              <th style="padding:10px">SLA</th>
             </tr>
           </thead>
           <tbody>
-            ${svcs.map(s => {
-              const def = STATUS_DEFS[s.st];
+            ${pagItens.map(s => {
+              const def = STATUS_DEFS[s.st] || STATUS_DEFS[1];
               const isSel = state.selecionados.includes(s.id);
-              const isAlert = s.d > 5;
               return `
                 <tr class="row-svc" data-id="${s.id}" style="border-bottom:1px solid #eef1f0;background:${isSel ? '#eaf2ee' : '#fff'};cursor:pointer">
                   <td style="padding:10px 12px" onclick="event.stopPropagation()">
@@ -611,24 +607,18 @@ function renderMedicao(svcs, state) {
                   <td style="padding:10px">
                     <b>${s.id}</b><br><small style="color:#71807a">${s.ob} · ${s.tp}</small>
                   </td>
-                  <td style="padding:10px;font-family:var(--font-mono)">${s.nota || '—'}</td>
+                  <td style="padding:10px;font-weight:600;font-size:11px">${s.ct}</td>
                   <td style="padding:10px;font-family:var(--font-mono)">${s.data || '—'}</td>
                   <td style="padding:10px">${s.dep || '—'}</td>
-                  <td style="padding:10px;text-align:right;font-weight:600;font-family:var(--font-mono)">R$ ${s.v.toLocaleString('pt-BR')}</td>
+                  <td style="padding:10px;text-align:right;font-weight:600;font-family:var(--font-mono)">R$ ${s.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
                   <td style="padding:10px;font-size:11px;color:#71807a">${s.ret || '—'}</td>
-                  <td style="padding:10px">
-                    <span class="${isAlert ? 'badge-sla-alert' : 'badge-sla-ok'}">${s.d} d</span>
-                  </td>
                 </tr>
               `;
             }).join('')}
           </tbody>
         </table>
         
-        <div class="table-footer">
-          <span><b>${state.selecionados.length}</b> selecionado(s)</span>
-          <span><b>${svcs.length}</b> serviço(s) na fila</span>
-        </div>
+        ${renderPaginador(svcs.length, pag, 10)}
       </div>
 
       <div style="width:280px;background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
@@ -639,7 +629,7 @@ function renderMedicao(svcs, state) {
 
         <div style="margin-bottom:18px">
           <div style="font-weight:700;font-size:12px;margin-bottom:2px">Alterar status</div>
-          <div style="font-size:11px;color:#71807a;margin-bottom:8px">Individual ou em massa — ex.: 01 → 07.</div>
+          <div style="font-size:11px;color:#71807a;margin-bottom:8px">Individual ou em massa.</div>
           <select id="select-bulk-status" class="select-input" style="width:100%;margin-bottom:8px">
             <option value="">Novo status...</option>
             ${Object.keys(STATUS_DEFS).map(k => `<option value="${k}">0${k}. ${STATUS_DEFS[k].n}</option>`).join('')}
@@ -647,22 +637,14 @@ function renderMedicao(svcs, state) {
           <button id="btn-apply-bulk" class="btn-primary" style="width:100%">Aplicar aos selecionados</button>
         </div>
 
-        <div style="margin-bottom:18px;border-top:1px solid var(--border-subtle);padding-top:14px">
-          <div style="font-weight:700;font-size:12px;margin-bottom:2px">Baixar / Tramitar</div>
-          <div style="font-size:11px;color:#71807a;margin-bottom:8px">Avança para a próxima etapa sugerida (ex.: 01 → 03).</div>
-          <button id="btn-tramitar-bulk" class="btn-secondary" style="width:100%">Tramitar selecionados</button>
-        </div>
-
         <div style="border-top:1px solid var(--border-subtle);padding-top:14px">
           <div style="font-weight:700;font-size:12px;margin-bottom:2px">Grupo de pendências</div>
-          <div style="font-size:11px;color:#71807a;margin-bottom:10px">Envia os selecionados para 02. Pendências com os tipos marcados.</div>
+          <div style="font-size:11px;color:#71807a;margin-bottom:10px">Envia os selecionados para 02. Pendências.</div>
           
           <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
             <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check" value="Documentos"> Documentos</label>
             <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check" value="Fotos"> Fotos</label>
             <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check" value="Materiais"> Materiais</label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check" value="Retorno"> Retorno</label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check" value="Outros"> Outros</label>
           </div>
 
           <button id="btn-enviar-pend" style="width:100%;background:#fdf3e3;color:#8a5a0d;border:1px solid #ecd9b7;border-radius:8px;padding:8px;font-size:12px;font-weight:600">Enviar para 02. Pendências</button>
@@ -670,6 +652,8 @@ function renderMedicao(svcs, state) {
       </div>
     </div>
   `;
+
+  bindPaginadorEvents(container, svcs.length);
 
   container.querySelector('#check-all-med')?.addEventListener('change', (e) => {
     const checked = e.target.checked;
@@ -720,7 +704,9 @@ function renderPendencias(svcs, state) {
   const container = document.querySelector('.view-container');
   if (!container) return;
 
-  const foco = svcs.find(s => s.id === state.servicoFocoId) || svcs[0];
+  const pag = state.paginaAtual || 1;
+  const pagItens = svcs.slice((pag - 1) * 10, pag * 10);
+  const foco = pagItens.find(s => s.id === state.servicoFocoId) || pagItens[0] || svcs[0];
 
   container.innerHTML = `
     <div style="display:flex;gap:14px;align-items:flex-start">
@@ -730,15 +716,14 @@ function renderPendencias(svcs, state) {
             <tr style="background:#f7f9f8;border-bottom:1px solid var(--border-subtle);text-align:left;font-size:10.5px;color:#71807a;font-weight:700">
               <th style="padding:10px">STATUS</th>
               <th style="padding:10px">SERVIÇO</th>
-              <th style="padding:10px">PENDÊNCIAS</th>
+              <th style="padding:10px">RETORNO / PENDÊNCIAS</th>
               <th style="padding:10px">DATA</th>
-              <th style="padding:10px">SLA</th>
               <th style="padding:10px;text-align:right">VALOR</th>
             </tr>
           </thead>
           <tbody>
-            ${svcs.map(s => {
-              const def = STATUS_DEFS[s.st];
+            ${pagItens.map(s => {
+              const def = STATUS_DEFS[s.st] || STATUS_DEFS[2];
               const isFoco = foco && foco.id === s.id;
               return `
                 <tr class="row-foco" data-id="${s.id}" style="border-bottom:1px solid #eef1f0;background:${isFoco ? '#eaf2ee' : '#fff'};cursor:pointer">
@@ -750,25 +735,20 @@ function renderPendencias(svcs, state) {
                   <td style="padding:10px">
                     <b>${s.id}</b><br><small style="color:#71807a">${s.ob} · ${s.tp}</small>
                   </td>
-                  <td style="padding:10px">
-                    <div style="display:flex;flex-wrap:wrap;gap:4px">
-                      ${(s.pend || []).map(p => `
-                        <span style="padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:${p.tr ? '#d1fae5' : '#fee2e2'};color:${p.tr ? '#065f46' : '#991b1b'}">
-                          ${p.tr ? '✓' : '✕'} ${p.t}
-                        </span>
-                      `).join('')}
-                    </div>
+                  <td style="padding:10px;font-size:11.5px">
+                    <span style="padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#fee2e2;color:#991b1b">
+                      ✕ ${s.ret || 'Retorno de Campo'}
+                    </span>
                   </td>
                   <td style="padding:10px;font-family:var(--font-mono)">${s.data || '—'}</td>
-                  <td style="padding:10px">
-                    <span class="badge-sla-alert">${s.d} d</span>
-                  </td>
-                  <td style="padding:10px;text-align:right;font-weight:600;font-family:var(--font-mono)">R$ ${s.v.toLocaleString('pt-BR')}</td>
+                  <td style="padding:10px;text-align:right;font-weight:600;font-family:var(--font-mono)">R$ ${s.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
                 </tr>
               `;
             }).join('')}
           </tbody>
         </table>
+
+        ${renderPaginador(svcs.length, pag, 10)}
       </div>
 
       <div style="width:320px;background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
@@ -782,44 +762,29 @@ function renderPendencias(svcs, state) {
             <span class="badge-status-num">02</span> Pendências Operacionais
           </span>
 
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:#71807a;margin:10px 0 4px">
-            <span>Progresso:</span>
-            <span><b>${(foco.pend || []).filter(p=>p.tr).length} de ${(foco.pend || []).length} tratada(s)</b></span>
-          </div>
-
           <div style="margin-top:10px">
-            ${(foco.pend || []).map((p, idx) => `
-              <div class="card-pendencia">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                  <div style="display:flex;align-items:center;gap:8px">
-                    <button class="btn-check-pend" data-idx="${idx}" style="width:24px;height:24px;border-radius:6px;border:none;background:${p.tr ? '#d1fae5' : '#fee2e2'};color:${p.tr ? '#065f46' : '#991b1b'};font-weight:700;cursor:pointer">
-                      ${p.tr ? '✓' : '✕'}
-                    </button>
-                    <span style="font-size:13px;font-weight:700">${p.t}</span>
-                  </div>
-                  <span class="badge-pend-status ${p.tr ? 'badge-pend-tratado' : 'badge-pend-pendente'}">
-                    ${p.tr ? 'TRATADO' : 'PENDENTE'}
-                  </span>
-                </div>
-
-                <input class="text-input input-det-pend" data-idx="${idx}" value="${p.det || ''}" placeholder="Detalhamento da tratativa..." style="width:100%;font-size:11.5px">
-
+            <div class="card-pendencia">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <button class="btn-anexo btn-trigger-anexo" data-idx="${idx}">+ Anexo</button>
-                  <input type="file" class="file-input-hidden" data-idx="${idx}" style="display:none">
-                  ${p.anx ? `<span style="font-size:10.5px;color:var(--ac-primary);font-weight:600">📎 ${p.anx}</span>` : ''}
+                  <span style="font-size:13px;font-weight:700">${foco.ret || 'Pendência de Campo'}</span>
                 </div>
+                <span class="badge-pend-status badge-pend-pendente">PENDENTE</span>
               </div>
-            `).join('')}
-          </div>
 
-          <div style="margin-top:16px;background:#f7f9f8;border-radius:8px;padding:12px;font-size:11.5px;color:#5b6b65;line-height:1.45;border:1px solid var(--border-subtle)">
-            Ao tratar <b>todas</b> as pendências, o serviço retorna automaticamente para <b>01. Aguardando Conferência</b>.
+              <input class="text-input input-det-pend" value="" placeholder="Detalhamento da tratativa..." style="width:100%;font-size:11.5px">
+
+              <div style="display:flex;align-items:center;gap:8px">
+                <button class="btn-anexo btn-trigger-anexo">+ Anexo</button>
+                <input type="file" class="file-input-hidden" style="display:none">
+              </div>
+            </div>
           </div>
-        ` : `<div style="color:#71807a">Selecione um serviço para tratar as pendências.</div>`}
+        ` : `<div style="color:#71807a">Nenhum serviço em pendência operacional nesta amostragem.</div>`}
       </div>
     </div>
   `;
+
+  bindPaginadorEvents(container, svcs.length);
 
   container.querySelectorAll('.row-foco').forEach(row => {
     row.addEventListener('click', () => {
@@ -831,39 +796,6 @@ function renderPendencias(svcs, state) {
   container.querySelector('#btn-open-drawer-foco')?.addEventListener('click', () => {
     if (foco) store.setState({ drawerServicoId: foco.id });
   });
-
-  container.querySelectorAll('.btn-check-pend').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = Number(btn.getAttribute('data-idx'));
-      if (foco) store.tratarPendenciaItem(foco.id, idx);
-    });
-  });
-
-  container.querySelectorAll('.input-det-pend').forEach(input => {
-    input.addEventListener('change', (e) => {
-      const idx = Number(input.getAttribute('data-idx'));
-      if (foco) store.tratarPendenciaItem(foco.id, idx, e.target.value);
-    });
-  });
-
-  container.querySelectorAll('.btn-trigger-anexo').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = btn.getAttribute('data-idx');
-      const fileInput = container.querySelector(`.file-input-hidden[data-idx="${idx}"]`);
-      if (fileInput) fileInput.click();
-    });
-  });
-
-  container.querySelectorAll('.file-input-hidden').forEach(fileInput => {
-    fileInput.addEventListener('change', (e) => {
-      const idx = Number(fileInput.getAttribute('data-idx'));
-      if (e.target.files && e.target.files[0] && foco) {
-        const fileObj = e.target.files[0];
-        store.tratarPendenciaItem(foco.id, idx, null, fileObj.name);
-        store.notifyToast(`Anexo "${fileObj.name}" adicionado à pendência!`);
-      }
-    });
-  });
 }
 
 function renderGenericScreen(pageId, svcs) {
@@ -871,22 +803,30 @@ function renderGenericScreen(pageId, svcs) {
   if (!container) return;
   const info = TELAS_DEF.find(t => t.id === pageId) || { label: pageId };
 
+  const state = store.getState();
+  const pag = state.paginaAtual || 1;
+  const pagItens = svcs.slice((pag - 1) * 10, pag * 10);
+
   container.innerHTML = `
-    <div style="background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:20px">
-      <h3 style="margin:0 0 10px">${info.label}</h3>
-      <p style="color:#71807a">Exibindo serviços ativos nesta fila de trabalho:</p>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:14px">
+    <div style="background:#fff;border:1px solid var(--border-subtle);border-radius:10px;overflow:hidden">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border-subtle)">
+        <h3 style="margin:0">${info.label}</h3>
+        <p style="margin:4px 0 0;color:#71807a;font-size:12px">Exibindo registros reais carregados do banco MySQL <b>siges</b>:</p>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead>
           <tr style="background:#f7f9f8;border-bottom:1px solid var(--border-subtle);text-align:left">
             <th style="padding:10px">Status</th>
             <th style="padding:10px">Serviço</th>
-            <th style="padding:10px">Nota</th>
+            <th style="padding:10px">Contrato</th>
+            <th style="padding:10px">Tipo</th>
             <th style="padding:10px;text-align:right">Valor</th>
           </tr>
         </thead>
         <tbody>
-          ${svcs.map(s => {
-            const def = STATUS_DEFS[s.st];
+          ${pagItens.map(s => {
+            const def = STATUS_DEFS[s.st] || STATUS_DEFS[1];
             return `
               <tr class="row-svc" data-id="${s.id}" style="border-bottom:1px solid #eef1f0;cursor:pointer">
                 <td style="padding:10px">
@@ -894,16 +834,21 @@ function renderGenericScreen(pageId, svcs) {
                     <span class="badge-status-num">0${s.st}</span> ${def.n}
                   </span>
                 </td>
-                <td style="padding:10px"><b>${s.id}</b> — ${s.ob} (${s.tp})</td>
-                <td style="padding:10px">${s.nota || '—'}</td>
-                <td style="padding:10px;text-align:right;font-weight:600">R$ ${s.v.toLocaleString('pt-BR')}</td>
+                <td style="padding:10px"><b>${s.id}</b> — ${s.ob}</td>
+                <td style="padding:10px;font-weight:600">${s.ct}</td>
+                <td style="padding:10px">${s.tp}</td>
+                <td style="padding:10px;text-align:right;font-weight:600">R$ ${s.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
               </tr>
             `;
           }).join('')}
         </tbody>
       </table>
+
+      ${renderPaginador(svcs.length, pag, 10)}
     </div>
   `;
+
+  bindPaginadorEvents(container, svcs.length);
 
   container.querySelectorAll('.row-svc').forEach(row => {
     row.addEventListener('click', () => {
@@ -1050,34 +995,17 @@ function renderDrawer(state) {
     <div class="drawer-panel">
       <div style="padding:16px 20px;border-bottom:1px solid var(--border-subtle);display:flex;justify-content:space-between;align-items:center">
         <div>
-          <h3 style="margin:0">${s.id} — R$ ${s.v.toLocaleString('pt-BR')}</h3>
+          <h3 style="margin:0">${s.id} — R$ ${s.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h3>
           <span style="font-size:11.5px;color:#71807a">${s.ob} (${s.tp})</span>
         </div>
         <button id="btn-close-drawer" style="background:none;border:none;font-size:22px;cursor:pointer">×</button>
       </div>
       <div style="padding:20px;flex:1;overflow-y:auto;font-size:12px">
-        <p><b>Contrato:</b> ${CONTRATOS[s.ct] || s.ct}</p>
-        <p><b>Status Atual:</b> 0${s.st}. ${STATUS_DEFS[s.st]?.n}</p>
-
-        <h4 style="margin:16px 0 8px">Itens de Baremo Medidos:</h4>
-        <table style="width:100%;border-collapse:collapse;font-size:11.5px">
-          <thead>
-            <tr style="background:#f7f9f8;border-bottom:1px solid var(--border-subtle);text-align:left">
-              <th style="padding:6px">Cód</th>
-              <th style="padding:6px">Descrição</th>
-              <th style="padding:6px;text-align:right">Valor</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${(s.bar || []).map(b => `
-              <tr style="border-bottom:1px solid #eef1f0">
-                <td style="padding:6px;font-family:var(--font-mono)">${b.cod}</td>
-                <td style="padding:6px">${b.desc}</td>
-                <td style="padding:6px;text-align:right;font-family:var(--font-mono);font-weight:600">R$ ${b.med.toLocaleString('pt-BR')}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+        <p><b>Contrato:</b> ${s.ct}</p>
+        <p><b>Status Atual:</b> 0${s.st}. ${STATUS_DEFS[s.st]?.n || 'Status'}</p>
+        <p><b>Centro de Serviço:</b> ${s.dep || '—'}</p>
+        <p><b>Data Execução / Geração:</b> ${s.data || '—'}</p>
+        <p><b>Retorno de Campo:</b> ${s.ret || '—'}</p>
       </div>
     </div>
   `;

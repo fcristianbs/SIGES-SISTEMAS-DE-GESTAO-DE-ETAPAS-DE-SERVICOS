@@ -151,3 +151,8 @@ Thumbs.db
 # Project specific databases
 *.db
 *.sqlite
+
+# Environment variables
+.env
+.env.*
+
