@@ -23,8 +23,11 @@ def get_db_connection():
     port = int(os.getenv("DB_PORT", 3306))
     user = os.getenv("DB_USER", "")
     password = os.getenv("DB_PASSWORD", "")
-    # CONECTA EXCLUSIVAMENTE AO BD SECUNDÁRIO CRIADO PARA O SISTEMA (siges_app)
+    
+    # GARANTE A CONEXÃO DIRETA E EXCLUSIVA AO BD SECUNDÁRIO 'siges_app' NO VERCEL E LOCALMENTE
     dbname = os.getenv("DB_APP_NAME", "siges_app")
+    if not dbname or dbname == "siges":
+        dbname = "siges_app"
 
     if not user or not password:
         return None
