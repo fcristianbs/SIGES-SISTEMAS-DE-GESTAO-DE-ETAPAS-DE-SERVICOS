@@ -23,7 +23,8 @@ def get_db_connection():
     port = int(os.getenv("DB_PORT", 3306))
     user = os.getenv("DB_USER", "")
     password = os.getenv("DB_PASSWORD", "")
-    dbname = os.getenv("DB_NAME", "siges")
+    # CONECTA EXCLUSIVAMENTE AO BD SECUNDÁRIO CRIADO PARA O SISTEMA (siges_app)
+    dbname = os.getenv("DB_APP_NAME", "siges_app")
 
     if not user or not password:
         return None
@@ -40,24 +41,14 @@ def get_db_connection():
         )
         return conn
     except Exception as e:
-        print(f"[Aviso DB] Erro ao conectar no MySQL ({dbname}): {e}")
+        print(f"[Aviso DB] Erro ao conectar no banco secundário MySQL ({dbname}): {e}")
         return None
 
-def map_status_esteira(status_raw, situacao_raw, retorno_raw, num_servico=0):
-    ret_upper = (retorno_raw or "").strip().upper()
-
-    # Retornos de campo com pendência -> 02. Pendências Operacionais
-    if any(k in ret_upper for k in ['IMPRODUTIV', 'ÁREA DE RISCO', 'IMÓVEL FECHADO', 'NÃO EXECUTAD', 'IMPEDIMENTO', 'RECUSAD', 'CANCELAD']):
-        return 2
-
-    # Distribuição limpa e proporcional pelas 15 etapas da Esteira
-    try:
-        n = int(num_servico)
-        return (n % 15) + 1
-    except (ValueError, TypeError):
-        return 1
-
 def buscar_servicos_db(contrato="todos", tipo="todos", status_id="todos", busca="", periodo="30d", limit=500):
+    """
+    Busca os dados EXCLUSIVAMENTE do banco de dados secundário do sistema (siges_app.servicos).
+    Não realiza nenhuma consulta direta no banco bruto de carga (siges).
+    """
     conn = get_db_connection()
     if not conn:
         return []
@@ -66,55 +57,44 @@ def buscar_servicos_db(contrato="todos", tipo="todos", status_id="todos", busca=
         with conn.cursor() as cursor:
             sql = """
                 SELECT 
-                    num_servico, contrato, nome_obra, bairro, localidade, tipo_servico,
-                    status, situacao_servico, retorno_de_campo, valor_leitura, total_servicos,
-                    dta_exec_srv, data_geracao, centro_servico
+                    id, num_servico, contrato, nome_obra, bairro, localidade, tipo_servico,
+                    status_id, valor, sla_dias, nota_medicao, data_execucao, centro_servico,
+                    retorno_campo
                 FROM servicos
-                WHERE contrato LIKE %s
-                LIMIT %s
+                WHERE 1=1
             """
-            params = ['%MULTISERVICOS%', limit * 3]
+            params = []
+
+            if contrato != "todos":
+                sql += " AND contrato = %s"
+                params.append(contrato)
+
+            if tipo != "todos":
+                sql += " AND tipo_servico = %s"
+                params.append(tipo)
+
+            if status_id != "todos":
+                try:
+                    sql += " AND status_id = %s"
+                    params.append(int(status_id))
+                except ValueError:
+                    pass
+
+            if busca:
+                sql += " AND (id LIKE %s OR num_servico LIKE %s OR nome_obra LIKE %s OR contrato LIKE %s OR bairro LIKE %s OR localidade LIKE %s)"
+                b_str = f"%{busca}%"
+                params.extend([b_str, b_str, b_str, b_str, b_str, b_str])
+
+            sql += " ORDER BY id DESC LIMIT %s"
+            params.append(limit)
 
             cursor.execute(sql, params)
             rows = cursor.fetchall()
 
             resultado = []
             for r in rows:
-                ct_db = (r.get("contrato") or "").strip()
-                tp_serv = (r.get("tipo_servico") or "").strip()
-
-                if not any(target in ct_db for target in ['MULTISERVICOS C.SUL', 'MULTISERVICOS LESTE', 'MULTISERVICOS SUL', 'MULTISERVICOS']):
-                    continue
-
-                if contrato != "todos" and contrato not in ct_db:
-                    continue
-
-                # Exclusão estrita de OBRAS
-                if 'OBRA' in tp_serv.upper():
-                    continue
-
-                if tipo != "todos" and tipo.lower() not in tp_serv.lower():
-                    continue
-
-                num = r.get("num_servico") or ""
-                ret_str = (r.get("retorno_de_campo") or "").strip()
-                st_id = map_status_esteira(r.get("status"), r.get("situacao_servico"), ret_str, num)
-
-                if status_id != "todos":
-                    try:
-                        if st_id != int(status_id):
-                            continue
-                    except ValueError:
-                        pass
-
-                # LEITURA 100% EXCLUSIVA DA COLUNA 'total_servicos' (SEM USAR VALOR_LEITURA)
-                v_raw = r.get("total_servicos")
-
-                try:
-                    v_str = str(v_raw or "0").replace(",", ".").strip()
-                    valor = round(float(v_str), 2) if v_str else 0.0
-                except (ValueError, TypeError):
-                    valor = 0.0
+                st_id = r.get("status_id") or 1
+                ret_str = (r.get("retorno_campo") or "").strip()
 
                 n_obra = (r.get("nome_obra") or "").strip()
                 bairro = (r.get("bairro") or "").strip()
@@ -136,27 +116,32 @@ def buscar_servicos_db(contrato="todos", tipo="todos", status_id="todos", busca=
                         {"t": p_tipo[:20], "tr": False, "det": f"Inconformidade de campo: {ret_str}", "anx": None}
                     ]
 
+                try:
+                    val_float = float(r.get("valor") or 0.0)
+                except (ValueError, TypeError):
+                    val_float = 0.0
+
+                dt_val = r.get("data_execucao")
+                dt_str = str(dt_val) if dt_val else "Hoje"
+
                 resultado.append({
-                    "id": f"SOB-{num}",
-                    "ct": ct_db or "MULTISERVICOS SUL",
+                    "id": r.get("id") or f"SOB-{r.get('num_servico')}",
+                    "ct": r.get("contrato") or "MULTISERVICOS SUL",
                     "ob": local_str,
-                    "tp": tp_serv or "Serviço Técnico",
+                    "tp": r.get("tipo_servico") or "Serviço Técnico",
                     "st": st_id,
-                    "v": valor,
-                    "d": (int(num) % 8) + 1 if str(num).isdigit() else 3,
-                    "nota": f"NM-{str(num)[-4:]}",
-                    "data": r.get("dta_exec_srv") or r.get("data_geracao") or "Hoje",
+                    "v": val_float,
+                    "d": r.get("sla_dias") or 3,
+                    "nota": r.get("nota_medicao") or f"NM-{str(r.get('num_servico'))[-4:]}",
+                    "data": dt_str,
                     "dep": r.get("centro_servico") or "Operação",
                     "ret": ret_str,
                     "pend": pend_items
                 })
 
-                if len(resultado) >= limit:
-                    break
-
             return resultado
     except Exception as e:
-        print(f"[Aviso DB] Erro ao executar consulta no banco 'siges': {e}")
+        print(f"[Aviso DB] Erro ao consultar banco secundário 'siges_app': {e}")
         return []
     finally:
         conn.close()

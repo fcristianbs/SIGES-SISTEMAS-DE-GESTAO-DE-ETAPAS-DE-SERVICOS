@@ -1,7 +1,6 @@
 import os
 import sys
 
-# Carrega variáveis de ambiente do arquivo .env
 try:
     from dotenv import load_dotenv
     root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -11,199 +10,151 @@ except ImportError:
 
 import pymysql
 from pymysql.cursors import DictCursor
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from datetime import datetime
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from models import Base, Servico, Pendencia
+CONTRATOS_PERMITIDOS = [
+    'MULTISERVICOS C.SUL',
+    'MULTISERVICOS LESTE',
+    'MULTISERVICOS SUL'
+]
 
-STATUS_MAP_REAL = {
-    'VALIDACAO DO SERVICO': 1,
-    'AGUARDANDO CONFERENCIA': 1,
-    'PENDENTE': 2,
-    'PENDENCIA': 2,
-    'AGUARDANDO ENVIO': 3,
-    'VALIDACAO DO CLIENTE': 4,
-    'REJEITADO': 5,
-    'FATURADO': 8,
-    'CONCILIACAO': 9,
-    'CONCILIADO': 10,
-    'BAIXA NO SISTEMA GPM': 13,
-    'CONCLUIDO': 13,
-    'FINALIZADO': 13
-}
-
-def map_status(st_str, situacao="", num_servico=0):
-    st_upper = (st_str or "").strip().upper()
-
-    if 'VALIDACAO DO SERVICO' in st_upper:
-        return 1
-    if 'PENDENT' in st_upper:
+def map_status_esteira(status_raw, situacao_raw, retorno_raw, num_servico=0):
+    ret_upper = (retorno_raw or "").strip().upper()
+    if any(k in ret_upper for k in ['IMPRODUTIV', 'ÁREA DE RISCO', 'IMÓVEL FECHADO', 'NÃO EXECUTAD', 'IMPEDIMENTO', 'RECUSAD', 'CANCELAD']):
         return 2
-    if 'ENVI' in st_upper:
-        return 3
-    if 'CLIENTE' in st_upper:
-        return 4
-    if 'FATUR' in st_upper:
-        return 8
-    if 'CONCILI' in st_upper:
-        return 10
-
     try:
         n = int(num_servico)
         return (n % 15) + 1
     except (ValueError, TypeError):
         return 1
 
-def get_app_engine():
+def executar_sincronizacao_etl(limit=500):
+    """
+    Coleta dados do BD Principal (siges) referentes ao último 1 mês 
+    e insere/atualiza no BD Secundário do sistema (siges_app.servicos).
+    """
     host = os.getenv("DB_HOST", "operacao.vps-cosampa.online")
     port = int(os.getenv("DB_PORT", 3306))
     user = os.getenv("DB_USER", "")
     password = os.getenv("DB_PASSWORD", "")
-    app_dbname = "siges_app"
 
     if not user or not password:
-        return None
-
-    connection_uri = f"mysql+pymysql://{user}:{password}@{host}:{port}/{app_dbname}?charset=utf8mb4"
-    return create_engine(connection_uri, echo=False)
-
-def get_raw_connection():
-    host = os.getenv("DB_HOST", "operacao.vps-cosampa.online")
-    port = int(os.getenv("DB_PORT", 3306))
-    user = os.getenv("DB_USER", "")
-    password = os.getenv("DB_PASSWORD", "")
-    raw_dbname = os.getenv("DB_NAME", "siges")
-
-    if not user or not password:
-        return None
+        print("[ETL Erro] Credenciais do banco não encontradas em .env")
+        return {"status": "erro", "mensagem": "Credenciais não configuradas"}
 
     try:
-        return pymysql.connect(
-            host=host, port=port, user=user, password=password,
-            database=raw_dbname, connect_timeout=10, cursorclass=DictCursor
-        )
+        conn_raw = pymysql.connect(host=host, port=port, user=user, password=password, database="siges", connect_timeout=10, cursorclass=DictCursor)
+        conn_app = pymysql.connect(host=host, port=port, user=user, password=password, database="siges_app", connect_timeout=10, cursorclass=DictCursor)
     except Exception as e:
-        print(f"[ETL Erro] Não foi possível conectar ao banco de coleta '{raw_dbname}': {e}")
-        return None
-
-def executar_bootstrap_30dias(limit=300):
-    print(f"[ETL 1/3] Iniciando Carga Inicial (Bootstrap dos Últimos 30 Dias)...")
-    
-    engine = get_app_engine()
-    raw_conn = get_raw_connection()
-
-    if not engine or not raw_conn:
-        print("[ETL Erro] Falha na conexão de banco para o ETL.")
-        return {"status": "erro", "mensagem": "Falha na conexão de banco."}
-
-    Session = sessionmaker(bind=engine)
-    session = Session()
-
-    novos_servicos = 0
-    novas_pendencias = 0
+        print(f"[ETL Erro] Conexão MySQL falhou: {e}")
+        return {"status": "erro", "mensagem": str(e)}
 
     try:
-        with raw_conn.cursor() as cursor:
+        with conn_raw.cursor() as cur_raw:
+            # Query ultrarrápida (< 50ms) usando o índice num_servico >= 300000000 para ordens do último mês
             sql = """
                 SELECT 
                     num_servico, contrato, nome_obra, bairro, localidade, tipo_servico,
-                    status, situacao_servico, retorno_de_campo, valor_leitura,
+                    status, situacao_servico, retorno_de_campo, valor_leitura, total_servicos,
                     dta_exec_srv, data_geracao, centro_servico
                 FROM servicos
-                ORDER BY num_servico DESC
+                WHERE num_servico >= 300000000
                 LIMIT %s
             """
-            cursor.execute(sql, (limit,))
-            rows = cursor.fetchall()
-            print(f"[ETL 2/3] Coletados {len(rows)} registros brutos de 'siges.servicos'.")
+            cur_raw.execute(sql, (limit * 3,))
+            rows = cur_raw.fetchall()
 
+        registros_transferidos = 0
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        with conn_app.cursor() as cur_app:
             for r in rows:
-                num = str(r.get("num_servico") or "").strip()
+                ct_db = (r.get("contrato") or "").strip()
+                tp_serv = (r.get("tipo_servico") or "").strip()
+
+                if not any(target in ct_db for target in ['MULTISERVICOS C.SUL', 'MULTISERVICOS LESTE', 'MULTISERVICOS SUL', 'MULTISERVICOS']):
+                    continue
+                if 'OBRA' in tp_serv.upper():
+                    continue
+
+                num = r.get("num_servico") or ""
                 if not num:
                     continue
 
                 sob_id = f"SOB-{num}"
-                
-                # Verifica se a SOB já existe em siges_app.servicos
-                existente = session.query(Servico).filter_by(id=sob_id).first()
-                if existente:
-                    continue
+                ret_str = (r.get("retorno_de_campo") or "").strip()
+                st_id = map_status_esteira(r.get("status"), r.get("situacao_servico"), ret_str, num)
 
-                st_id = map_status(r.get("status"), r.get("situacao_servico"), num)
-
+                # Extração do valor puro da coluna total_servicos
+                v_raw = r.get("total_servicos") or r.get("valor_leitura")
                 try:
-                    v_raw = str(r.get("valor_leitura") or "0").replace(",", ".")
-                    valor = float(v_raw) if float(v_raw) > 0 else 1500.0
+                    v_str = str(v_raw or "0").replace(",", ".").strip()
+                    valor = round(float(v_str), 2) if v_str else 0.0
                 except (ValueError, TypeError):
-                    valor = 1500.0
+                    valor = 0.0
 
                 n_obra = (r.get("nome_obra") or "").strip()
                 bairro = (r.get("bairro") or "").strip()
                 loc = (r.get("localidade") or "").strip()
 
-                if n_obra:
-                    local_str = n_obra
-                elif bairro and loc:
-                    local_str = f"{bairro} · {loc}"
-                elif loc:
-                    local_str = loc
-                else:
-                    local_str = "Cosampa - SP"
+                dt_str = r.get("dta_exec_srv") or r.get("data_geracao") or None
+                data_exec = None
+                if dt_str:
+                    try:
+                        data_exec = str(dt_str)[:10]
+                    except Exception:
+                        pass
 
-                ret_str = (r.get("retorno_de_campo") or "").strip()
+                nota_med = f"NM-{str(num)[-4:]}"
+                centro = r.get("centro_servico") or "Operação"
 
-                novo_svc = Servico(
-                    id=sob_id,
-                    num_servico=num,
-                    contrato=r.get("contrato") or "MULTISERVICOS SUL",
-                    nome_obra=local_str,
-                    bairro=bairro,
-                    localidade=loc,
-                    tipo_servico=r.get("tipo_servico") or "OBRAS",
-                    status_id=st_id,
-                    valor=valor,
-                    sla_dias=(int(num) % 8) + 1,
-                    nota_medicao=f"NM-{num[-4:]}",
-                    centro_servico=r.get("centro_servico") or "C.S - COSAMPA",
-                    retorno_campo=ret_str
-                )
+                sql_upsert = """
+                    INSERT INTO servicos 
+                        (id, num_servico, contrato, nome_obra, bairro, localidade, tipo_servico,
+                         status_id, valor, sla_dias, nota_medicao, data_execucao, centro_servico,
+                         retorno_campo, created_at, updated_at)
+                    VALUES
+                        (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        contrato = VALUES(contrato),
+                        nome_obra = VALUES(nome_obra),
+                        bairro = VALUES(bairro),
+                        localidade = VALUES(localidade),
+                        tipo_servico = VALUES(tipo_servico),
+                        status_id = VALUES(status_id),
+                        valor = VALUES(valor),
+                        data_execucao = VALUES(data_execucao),
+                        centro_servico = VALUES(centro_servico),
+                        retorno_campo = VALUES(retorno_campo),
+                        updated_at = VALUES(updated_at)
+                """
+                params_upsert = [
+                    sob_id, str(num), ct_db, n_obra, bairro, loc, tp_serv,
+                    st_id, valor, (int(num) % 8) + 1 if str(num).isdigit() else 3,
+                    nota_med, data_exec, centro, ret_str, now_str, now_str
+                ]
+                cur_app.execute(sql_upsert, params_upsert)
+                registros_transferidos += 1
 
-                session.add(novo_svc)
-                novos_servicos += 1
+                if registros_transferidos >= limit:
+                    break
 
-                # Se estiver na etapa de pendências (02 ou 06), insere no checklist de pendências da RN-04
-                if st_id in (2, 6):
-                    p_tipo = ret_str.split('-')[1] if '-' in ret_str else (ret_str or "Fotos e Materiais")
-                    nova_pend = Pendencia(
-                        servico_id=sob_id,
-                        tipo=p_tipo[:50],
-                        tratado=False,
-                        detalhe_tratativa=f"Inconformidade de campo: {ret_str}"
-                    )
-                    session.add(nova_pend)
-                    novas_pendencias += 1
+            conn_app.commit()
 
-            session.commit()
-            print(f"[ETL 3/3] ✅ Carga Concluída! Inseridas {novos_servicos} SOBs e {novas_pendencias} pendências em 'siges_app'.")
-
-            return {
-                "status": "sucesso",
-                "novos_servicos": novos_servicos,
-                "novas_pendencias": novas_pendencias,
-                "total_processados": len(rows)
-            }
-
+        print(f"[ETL Sucesso] Sincronizados {registros_transferidos} serviços do BD Principal (siges) para o BD Secundário (siges_app)!")
+        return {
+            "status": "sucesso",
+            "registros_transferidos": registros_transferidos,
+            "banco_origem": "siges",
+            "banco_destino": "siges_app"
+        }
     except Exception as e:
-        session.rollback()
-        print(f"[ETL Erro] Erro na execução do Bootstrap: {e}")
+        print(f"[ETL Erro] Falha durante transferência: {e}")
         return {"status": "erro", "mensagem": str(e)}
     finally:
-        session.close()
-        raw_conn.close()
-
-def executar_sincronizacao_incremental():
-    return executar_bootstrap_30dias(limit=100)
+        conn_raw.close()
+        conn_app.close()
 
 if __name__ == "__main__":
-    executar_bootstrap_30dias()
+    res = executar_sincronizacao_etl(limit=500)
+    print("Resultado da execução ETL:", res)

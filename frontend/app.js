@@ -193,6 +193,7 @@ class Store {
     return this.state.servicos.filter(s => {
       if (f.contrato !== 'todos' && s.ct !== f.contrato) return false;
       if (f.tipo !== 'todos' && s.tp !== f.tipo) return false;
+      if (f.status && f.status !== 'todos' && s.st !== Number(f.status)) return false;
       if (f.busca) {
         const q = f.busca.toLowerCase();
         if (!`${s.id} ${s.ob} ${s.tp} ${s.ct}`.toLowerCase().includes(q)) return false;
@@ -418,6 +419,10 @@ function renderPageUI(pageId, state) {
           <option value="todos" ${state.filtros.tipo==='todos'?'selected':''}>Todos os tipos (${tiposUnicos.length})</option>
           ${tiposUnicos.map(tp => `<option value="${tp}" ${state.filtros.tipo===tp?'selected':''}>${tp}</option>`).join('')}
         </select>
+        <select id="f-status" class="select-input">
+          <option value="todos" ${state.filtros.status==='todos'?'selected':''}>Todos os status (15)</option>
+          ${Object.keys(STATUS_DEFS).map(k => `<option value="${k}" ${state.filtros.status===k?'selected':''}>0${k}. ${STATUS_DEFS[k].n}</option>`).join('')}
+        </select>
         <input id="f-busca" class="text-input" value="${state.filtros.busca}" placeholder="Buscar SOB, obra, contrato..." style="width:220px">
       </div>
     `;
@@ -426,6 +431,9 @@ function renderPageUI(pageId, state) {
     });
     filterBar.querySelector('#f-tipo')?.addEventListener('change', (e) => {
       store.setState({ filtros: { ...store.getState().filtros, tipo: e.target.value }, paginaAtual: 1 });
+    });
+    filterBar.querySelector('#f-status')?.addEventListener('change', (e) => {
+      store.setState({ filtros: { ...store.getState().filtros, status: e.target.value }, paginaAtual: 1 });
     });
     filterBar.querySelector('#f-busca')?.addEventListener('input', (e) => {
       store.setState({ filtros: { ...store.getState().filtros, busca: e.target.value }, paginaAtual: 1 });

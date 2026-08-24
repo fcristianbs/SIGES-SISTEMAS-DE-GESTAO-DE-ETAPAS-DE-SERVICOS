@@ -14,7 +14,7 @@ except ImportError:
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from data import PERFIS_DB, USUARIOS_DB, SERVICOS_DB
 from db import buscar_servicos_db
-from etl_sync import executar_bootstrap_30dias, executar_sincronizacao_incremental
+from etl_sync import executar_sincronizacao_etl
 
 app = Flask(__name__, static_folder="../frontend")
 CORS(app)
@@ -58,21 +58,16 @@ def status_api():
     return jsonify({
         "app": "SIGES - API Flask Enxuta",
         "status": "online",
-        "database_raw": os.getenv("DB_NAME", "siges"),
-        "database_app": "siges_app"
+        "database_raw": "siges",
+        "database_app": os.getenv("DB_APP_NAME", "siges_app")
     })
 
 # --- ENDPOINTS PIPELINE ETL DE INGESTÃO (siges -> siges_app) ---
 @app.route("/api/etl/sync", methods=["POST"])
 def disparar_etl_sync():
     data = request.json or {}
-    tipo_sync = data.get("tipo", "bootstrap") # 'bootstrap' ou 'incremental'
-
-    if tipo_sync == "incremental":
-        res = executar_sincronizacao_incremental()
-    else:
-        res = executar_bootstrap_30dias(limit=data.get("limit", 300))
-
+    limit = data.get("limit", 500)
+    res = executar_sincronizacao_etl(limit=limit)
     return jsonify(res)
 
 @app.route("/api/servicos", methods=["GET"])
@@ -82,7 +77,7 @@ def listar_servicos():
     status_id = request.args.get("status_id", "todos")
     busca = request.args.get("busca", "")
 
-    # Busca estritamente do banco real MySQL siges (retorna [] se vazio, sem alternar para mocks)
+    # Consulta EXCLUSIVAMENTE o banco secundario de utilizacao do sistema (siges_app.servicos)
     dados_reais = buscar_servicos_db(contrato=contrato, tipo=tipo, status_id=status_id, busca=busca)
     resultado = dados_reais if dados_reais is not None else []
 
