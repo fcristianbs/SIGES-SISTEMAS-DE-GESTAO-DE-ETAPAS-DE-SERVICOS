@@ -13,7 +13,7 @@ except ImportError:
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from data import PERFIS_DB, USUARIOS_DB, SERVICOS_DB
-from db import buscar_servicos_db, tramitar_servico_db, buscar_logs_auditoria, registrar_log_auditoria
+from db import buscar_servicos_db, tramitar_servico_db, buscar_logs_auditoria, registrar_log_auditoria, atualizar_dados_servico_db
 from etl_sync import executar_sincronizacao_etl
 
 app = Flask(__name__, static_folder="../frontend")
@@ -98,6 +98,20 @@ def tramitar_servico(servico_id):
         return jsonify(res), 400
     return jsonify(res)
 
+@app.route("/api/servicos/<servico_id>", methods=["PUT"])
+def atualizar_servico(servico_id):
+    data = request.json or {}
+    usuario_nome = data.pop("usuario_nome", "Analista Fechamento")
+    usuario_email = data.pop("usuario_email", "analista@cosampa.com.br")
+
+    if not data:
+        return jsonify({"status": "erro", "mensagem": "Nenhum dado fornecido para atualização"}), 400
+
+    res = atualizar_dados_servico_db(servico_id, data, usuario_nome, usuario_email)
+    if res.get("status") == "erro":
+        return jsonify(res), 400
+    return jsonify(res)
+
 @app.route("/api/servicos/<servico_id>/auditoria", methods=["GET"])
 def obter_logs_auditoria(servico_id):
     logs = buscar_logs_auditoria(servico_id)
@@ -122,6 +136,13 @@ def enviar_lote_validacao():
             registrar_log_auditoria(sid, usuario_nome, "analista@cosampa.com.br", "sistema_faturamento", "", sistema_fat)
             registrar_log_auditoria(sid, usuario_nome, "analista@cosampa.com.br", "mes_medicao_inicial", "", mes_inicial)
             sucessos += 1
+
+    if sucessos > 0:
+        desc_tech = {"lote_tamanho": len(ids), "sucessos": sucessos, "sistema_fat": sistema_fat, "mes_inicial": mes_inicial}
+        desc_human = f"{usuario_nome} enviou em lote {sucessos} serviço(s) para validação do cliente (Sistema: {sistema_fat}, Mês: {mes_inicial})."
+        # O tramitar_servico_db ja gerou logs para cada ID especifico, entao o ID aqui pode ser LOTE
+        from db import registrar_acao_global
+        registrar_acao_global(usuario_nome, "analista@cosampa.com.br", "ENVIO_LOTE_VALIDACAO", "LOTE", desc_tech, desc_human)
 
     return jsonify({"status": "sucesso", "tramitados": sucessos, "total": len(ids)})
 

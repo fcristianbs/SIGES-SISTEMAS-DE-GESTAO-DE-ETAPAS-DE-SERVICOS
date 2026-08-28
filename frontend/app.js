@@ -5,20 +5,20 @@
 
 const STATUS_DEFS = {
   1: { n: 'Aguardando Conferência', a: 'Fechamento', m: 'med', sla: 3, color: '#1c5f4b', bg: '#eaf2ee', fg: '#14483a' },
-  2: { n: 'Pendências Operacionais', a: 'Operação', m: 'pen', sla: 5, color: '#b03a28', bg: '#fdf2f0', fg: '#b03a28' },
+  2: { n: 'Pendências Operacionais Cosampa', a: 'Operação', m: 'pen', sla: 5, color: '#b03a28', bg: '#fdf2f0', fg: '#b03a28' },
   3: { n: 'Aguard. Envio p/ Validação', a: 'Fechamento', m: 'med', sla: 2, color: '#2b6e58', bg: '#eef6f3', fg: '#1c5f4b' },
-  4: { n: 'Aguard. Validação do Cliente', a: 'Faturamento', m: 'fat', sla: 7, color: '#d97706', bg: '#fef3c7', fg: '#92400e' },
-  5: { n: 'Rejeitado na Validação (Fech.)', a: 'Fechamento', m: 'med', sla: 3, color: '#dc2626', bg: '#fee2e2', fg: '#991b1b' },
-  6: { n: 'Rejeitado na Validação (Oper.)', a: 'Operação', m: 'pen', sla: 5, color: '#dc2626', bg: '#fee2e2', fg: '#991b1b' },
-  7: { n: 'Validado — Aguard. Autorização', a: 'Faturamento', m: 'fat', sla: 3, color: '#059669', bg: '#d1fae5', fg: '#065f46' },
-  8: { n: 'Faturado — Aguard. Conciliação', a: 'Faturamento', m: 'con', sla: 10, color: '#2563eb', bg: '#dbeafe', fg: '#1e40af' },
-  9: { n: 'Análise de Conciliação', a: 'Faturamento', m: 'con', sla: 5, color: '#4f46e5', bg: '#e0e7ff', fg: '#3730a3' },
-  10: { n: 'Conciliado c/ Divergências', a: 'Fechamento', m: 'med', sla: 4, color: '#ea580c', bg: '#ffedd5', fg: '#9a3412' },
-  11: { n: 'Pgto a Menor — Cobrar Cliente', a: 'Fechamento', m: 'med', sla: 7, color: '#c026d3', bg: '#fae8ff', fg: '#86198f' },
-  12: { n: 'Pgto a Menor — Em Disputa', a: 'Fechamento', m: 'med', sla: 15, color: '#9333ea', bg: '#f3e8ff', fg: '#6b21a8' },
-  13: { n: 'Faturado Total', a: 'Geral', m: 'fin', sla: null, color: '#16a34a', bg: '#dcfce7', fg: '#15803d' },
-  14: { n: 'Faturado a Maior', a: 'Geral', m: 'fin', sla: null, color: '#0891b2', bg: '#cffafe', fg: '#155e75' },
-  15: { n: 'Faturado a Menor', a: 'Geral', m: 'fin', sla: null, color: '#475569', bg: '#f1f5f9', fg: '#334155' }
+  4: { n: 'Pendências Distribuidora', a: 'Fechamento', m: 'pen', sla: 5, color: '#d97706', bg: '#fef3c7', fg: '#92400e' },
+  5: { n: 'Aguard. Validação do Cliente', a: 'Faturamento', m: 'fat', sla: 7, color: '#d97706', bg: '#fef3c7', fg: '#92400e' },
+  6: { n: 'Rejeitado na Validação (Fech.)', a: 'Fechamento', m: 'med', sla: 3, color: '#dc2626', bg: '#fee2e2', fg: '#991b1b' },
+  7: { n: 'Rejeitado na Validação (Oper.)', a: 'Operação', m: 'pen', sla: 5, color: '#dc2626', bg: '#fee2e2', fg: '#991b1b' },
+  8: { n: 'Validado — Aguard. Autorização', a: 'Faturamento', m: 'fat', sla: 3, color: '#059669', bg: '#d1fae5', fg: '#065f46' },
+  9: { n: 'Faturado — Aguard. Conciliação', a: 'Faturamento', m: 'con', sla: 10, color: '#2563eb', bg: '#dbeafe', fg: '#1e40af' },
+  10: { n: 'Análise de Conciliação', a: 'Faturamento', m: 'con', sla: 5, color: '#4f46e5', bg: '#e0e7ff', fg: '#3730a3' },
+  11: { n: 'Conciliado c/ Divergências', a: 'Fechamento', m: 'med', sla: 4, color: '#ea580c', bg: '#ffedd5', fg: '#9a3412' },
+  12: { n: 'Pgto a Menor — Cobrar Cliente', a: 'Fechamento', m: 'med', sla: 7, color: '#c026d3', bg: '#fae8ff', fg: '#86198f' },
+  13: { n: 'Pgto a Menor — Em Disputa', a: 'Fechamento', m: 'med', sla: 15, color: '#9333ea', bg: '#f3e8ff', fg: '#6b21a8' },
+  14: { n: 'Faturado Total', a: 'Geral', m: 'fin', sla: null, color: '#16a34a', bg: '#dcfce7', fg: '#15803d' },
+  15: { n: 'Faturado a Maior', a: 'Geral', m: 'fin', sla: null, color: '#0891b2', bg: '#cffafe', fg: '#155e75' }
 };
 
 const TELAS_DEF = [
@@ -452,7 +452,7 @@ function renderPageUI(pageId, state) {
   // Renderização da Tela
   if (pageId === 'gerencial') renderGerencial(servicosFiltrados, state);
   else if (pageId === 'medicao') renderMedicao(servicosFiltrados, state);
-  else if (pageId === 'pendencias') renderPendencias(servicosFiltrados.filter(s => s.st === 2 || s.st === 6), state);
+  else if (pageId === 'pendencias') renderPendencias(servicosFiltrados.filter(s => [2, 4, 6, 7].includes(s.st)), state);
   else if (pageId === 'gestao_acessos') renderGestaoAcessos();
   else renderGenericScreen(pageId, servicosFiltrados);
 
@@ -606,11 +606,11 @@ function renderMedicao(svcs, state) {
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead>
             <tr style="background:#f7f9f8;border-bottom:1px solid var(--border-subtle);text-align:left;font-size:10.5px;color:#71807a;font-weight:700">
-              <th style="padding:10px 12px;width:28px"><input type="checkbox" id="check-all-med"></th>
+              <th style="padding:10px 12px;width:28px"><input type="checkbox" id="check-all-med" ${state.selecionados.length > 0 && state.selecionados.length === svcs.length ? 'checked' : ''}></th>
               <th style="padding:10px">STATUS</th>
-              <th style="padding:10px">SERVIÇO</th>
+              <th style="padding:10px">SERVIÇO E DATA</th>
               <th style="padding:10px">PEP OBRA / TDC</th>
-              <th style="padding:10px">CONTRATO</th>
+              <th style="padding:10px">CLIENTE / CONTRATO</th>
               <th style="padding:10px">ORIGEM</th>
               <th style="padding:10px;text-align:right">VALOR</th>
               <th style="padding:10px">RETORNO</th>
@@ -633,12 +633,14 @@ function renderMedicao(svcs, state) {
                   </td>
                   <td style="padding:10px">
                     <b>${s.id}</b> ${isIrma ? `<span style="background:#e0f2fe;color:#0369a1;font-size:9.5px;padding:2px 5px;border-radius:4px;font-weight:700">SOB Irmã</span>` : ''}<br>
-                    <small style="color:#71807a">${s.ob} · ${s.tp}</small>
+                    <small style="color:#71807a">${s.tp} · <b>${s.data || '—'}</b></small>
                   </td>
                   <td style="padding:10px;font-family:var(--font-mono);font-size:11px">
                     <b>${s.pep||'—'}</b><br><small style="color:#71807a">${s.tdc||'—'}</small>
                   </td>
-                  <td style="padding:10px;font-weight:600;font-size:11px">${s.ct}</td>
+                  <td style="padding:10px;font-size:11px">
+                    <b>${s.cliente || '—'}</b><br><small style="font-weight:600;color:#5b6b65">${s.ct}</small>
+                  </td>
                   <td style="padding:10px;font-family:var(--font-mono);font-size:11px">${s.origem || 'PDA'}</td>
                   <td style="padding:10px;text-align:right;font-weight:600;font-family:var(--font-mono)">R$ ${s.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
                   <td style="padding:10px;font-size:11px;color:#71807a">${s.ret || '—'}</td>
@@ -668,16 +670,27 @@ function renderMedicao(svcs, state) {
         </div>
 
         <div style="border-top:1px solid var(--border-subtle);padding-top:14px">
-          <div style="font-weight:700;font-size:12px;margin-bottom:2px">Grupo de pendências</div>
-          <div style="font-size:11px;color:#71807a;margin-bottom:10px">Envia os selecionados para 02. Pendências.</div>
+          <div style="font-weight:700;font-size:12px;margin-bottom:2px">Pendência Cosampa (Status 02)</div>
+          <div style="font-size:11px;color:#71807a;margin-bottom:10px">Selecione os itens e envie para a Operação.</div>
           
           <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
-            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check" value="Documentos"> Documentos</label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check" value="Fotos"> Fotos</label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check" value="Materiais"> Materiais</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check-cosampa" value="Fotos (S/ Evidência, Baixa Qualidade)"> Fotos (S/ Evidência, Baixa Qualidade)</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check-cosampa" value="Materiais (Incorretos, Sobras)"> Materiais (Incorretos, Sobras)</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check-cosampa" value="Documentação (Sem croqui, croqui incorreto)"> Documentação (S/ Croqui, Croqui Errado)</label>
           </div>
+          <button id="btn-enviar-pend-cosampa" style="width:100%;background:#fdf3e3;color:#8a5a0d;border:1px solid #ecd9b7;border-radius:8px;padding:8px;font-size:11px;font-weight:600;margin-bottom:14px">Gerar Pendência Cosampa (02)</button>
+        </div>
 
-          <button id="btn-enviar-pend" style="width:100%;background:#fdf3e3;color:#8a5a0d;border:1px solid #ecd9b7;border-radius:8px;padding:8px;font-size:12px;font-weight:600">Enviar para 02. Pendências</button>
+        <div style="border-top:1px solid var(--border-subtle);padding-top:14px">
+          <div style="font-weight:700;font-size:12px;margin-bottom:2px">Pendência Distribuidora (Status 04)</div>
+          <div style="font-size:11px;color:#71807a;margin-bottom:10px">Selecione os itens e bloqueie a SOB.</div>
+          
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check-dist" value="Vozes não cadastradas no Contrato"> Vozes não cadastradas</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check-dist" value="Serviço não despachado para Cosampa"> Serviço não despachado</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check-dist" value="Ordem já faturada"> Ordem já faturada</label>
+          </div>
+          <button id="btn-enviar-pend-distribuidora" style="width:100%;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:8px;padding:8px;font-size:11px;font-weight:600">Gerar Pend. Distribuidora (04)</button>
         </div>
       </div>
     </div>
@@ -775,10 +788,10 @@ function renderMedicao(svcs, state) {
     store.notifyToast(`Status alterado para ${state.selecionados.length} serviço(s)!`);
   });
 
-  container.querySelector('#btn-enviar-pend')?.addEventListener('click', () => {
-    if (state.selecionados.length === 0) return alert('Selecione serviços para enviar para pendências.');
-    const gps = Array.from(container.querySelectorAll('.gp-check:checked')).map(c => c.value);
-    const pItems = (gps.length ? gps : ['Geral']).map(t => ({ t, tr: false, det: '', anx: null }));
+  container.querySelector('#btn-enviar-pend-cosampa')?.addEventListener('click', () => {
+    if (state.selecionados.length === 0) return alert('Selecione serviços para gerar pendência.');
+    const gps = Array.from(container.querySelectorAll('.gp-check-cosampa:checked')).map(c => c.value);
+    const pItems = (gps.length ? gps : ['Geral Cosampa']).map(t => ({ t, tr: false, det: '', anx: null }));
 
     const novos = state.servicos.map(s => {
       if (state.selecionados.includes(s.id)) {
@@ -788,7 +801,23 @@ function renderMedicao(svcs, state) {
     });
 
     store.setState({ servicos: novos, selecionados: [] });
-    store.notifyToast(`${state.selecionados.length} serviço(s) enviado(s) para 02. Pendências Operacionais!`);
+    store.notifyToast(`${state.selecionados.length} serviço(s) enviado(s) para 02. Pendências Operacionais Cosampa!`);
+  });
+
+  container.querySelector('#btn-enviar-pend-distribuidora')?.addEventListener('click', () => {
+    if (state.selecionados.length === 0) return alert('Selecione serviços para gerar pendência.');
+    const gps = Array.from(container.querySelectorAll('.gp-check-dist:checked')).map(c => c.value);
+    const pItems = (gps.length ? gps : ['Geral Distribuidora']).map(t => ({ t, tr: false, det: '', anx: null }));
+
+    const novos = state.servicos.map(s => {
+      if (state.selecionados.includes(s.id)) {
+        return { ...s, st: 4, pend: pItems }; // Status 04 Distribuidora
+      }
+      return s;
+    });
+
+    store.setState({ servicos: novos, selecionados: [] });
+    store.notifyToast(`${state.selecionados.length} serviço(s) enviado(s) para 04. Pendências Distribuidora!`);
   });
 }
 
@@ -857,7 +886,7 @@ function renderPendencias(svcs, state) {
           <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
             <div style="font-size:11px;color:#71807a">Supervisor: <b>${foco.supervisor || '—'}</b> · Equipe: <b>${foco.equipe || '—'}</b></div>
             
-            <div style="font-weight:700;font-size:12px;color:#1c5f4b">Itens de Correção Cosampa (RN-04)</div>
+            <div style="font-weight:700;font-size:12px;color:#1c5f4b">${foco.st === 4 ? 'Itens de Correção Distribuidora' : 'Itens de Correção Cosampa (RN-04)'}</div>
             ${(foco.pend && foco.pend.length > 0 ? foco.pend : [
               { t: 'Evidências de Fotos de Campo', tr: false, det: foco.ret || 'Retorno de campo', anx: null },
               { t: 'Materiais Aplicados / Retirados', tr: false, det: 'Aguardando verificação', anx: null }
@@ -901,6 +930,17 @@ function renderPendencias(svcs, state) {
     container.querySelector('#box-reprogramacao').style.display = e.target.checked ? 'block' : 'none';
   });
 
+  container.querySelectorAll('.check-item-tratado').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const isTratado = e.target.checked;
+      const spanLabel = cb.nextElementSibling;
+      if (spanLabel) {
+        spanLabel.textContent = isTratado ? 'TRATADO' : 'PENDENTE';
+        spanLabel.style.color = isTratado ? '#16a34a' : '#dc2626';
+      }
+    });
+  });
+
   container.querySelector('#btn-salvar-tratativa-rn04')?.addEventListener('click', async () => {
     if (!foco) return;
     const cbs = container.querySelectorAll('.check-item-tratado');
@@ -917,7 +957,10 @@ function renderPendencias(svcs, state) {
 
     if (tratadosCount === totalItems && totalItems > 0) {
       // RN-04: Retorno Automático para Status 01 (Aguardando Conferência) ou 03
-      const statusRetorno = foco.st === 7 ? 3 : 1;
+      // CDU V2: Status 04 (Dist) retorna para 03. Status 07 (Op) retorna para 03. Status 02 (Cos) retorna para 01.
+      let statusRetorno = 1;
+      if (foco.st === 7 || foco.st === 4) statusRetorno = 3;
+
       try {
         const res = await fetch(`/api/servicos/${foco.id}/tramitar`, {
           method: 'POST',
@@ -1194,6 +1237,47 @@ function renderDrawer(state) {
           <div style="margin-top:6px"><b>Membros:</b> ${s.membros || '—'}</div>
         </div>
 
+        <!-- Secao V2 Dinamica: Validacao (05) e Conciliacao (11, 12) -->
+        ${s.st === 5 ? `
+        <div style="background:#fff;border:1px solid #d97706;padding:14px;border-radius:8px">
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:#92400e">✅ Aprovar Medição (Cliente)</div>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <input type="date" id="drawer-data-validacao" class="text-input" style="flex:1" placeholder="Data da 1ª Validação">
+            <button id="btn-hoje-validacao" class="btn-secondary" style="padding:0 8px;font-size:11px">Hoje</button>
+          </div>
+          <button id="btn-aprovar-05" class="btn-primary" style="width:100%;background:#059669;border-color:#059669">Aprovar Medição (Avança p/ 08)</button>
+        </div>
+        ` : ''}
+
+        ${s.st === 11 ? `
+        <div style="background:#fff;border:1px solid #ea580c;padding:14px;border-radius:8px">
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:#9a3412">⚖️ Comparativo Financeiro-Operacional</div>
+          <div style="display:flex;gap:10px;margin-bottom:10px">
+            <div style="flex:1;background:#f8faf9;padding:8px;border-radius:4px;border:1px solid #eef1f0">
+              <div style="font-size:10px;color:#71807a">Valor Executado (Cosampa)</div>
+              <div style="font-weight:700;font-size:14px">R$ ${s.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</div>
+            </div>
+            <div style="flex:1;background:#fefce8;padding:8px;border-radius:4px;border:1px solid #fef08a">
+              <div style="font-size:10px;color:#854d0e">Valor Pago (Distribuidora)</div>
+              <div style="font-weight:700;font-size:14px;color:#854d0e">R$ ${(s.valor_pago || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</div>
+            </div>
+          </div>
+          <input type="text" id="drawer-justificativa-11" class="text-input" style="width:100%;margin-bottom:10px" placeholder="Justificativa da Divergência da Conciliação..." value="${s.divergencia_conciliacao || ''}">
+          <div style="display:flex;gap:8px">
+            <button id="btn-encaminhar-12" class="btn-primary" style="flex:1;background:#c026d3;border-color:#c026d3;font-size:11px">Cobrar Cliente (Ir p/ 12)</button>
+          </div>
+        </div>
+        ` : ''}
+
+        ${s.st === 12 ? `
+        <div style="background:#fff;border:1px solid #c026d3;padding:14px;border-radius:8px">
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:#86198f">📅 Mês de Reapresentação</div>
+          <div style="font-size:11px;color:#71807a;margin-bottom:8px">Defina o mês de reapresentação para tramitar para o status 13 (Em Disputa).</div>
+          <input type="month" id="drawer-mes-reapresentacao" class="text-input" style="width:100%;margin-bottom:10px" value="${s.mes_reapresentacao || ''}">
+          <button id="btn-encaminhar-13" class="btn-primary" style="width:100%;background:#9333ea;border-color:#9333ea">Iniciar Disputa (Avança p/ 13)</button>
+        </div>
+        ` : ''}
+
         <!-- Seção 3: Tramitação com Trava RN-03 -->
         <div style="background:#fff;border:1px solid var(--border-subtle);padding:14px;border-radius:8px">
           <div style="font-weight:700;font-size:12px;margin-bottom:6px">⚡ Tramitar Status (CDU-01 / RN-03)</div>
@@ -1240,7 +1324,79 @@ function renderDrawer(state) {
         alert(data.mensagem || 'Falha ao tramitar serviço.');
       }
     } catch (e) {
-      alert('Erro na requisição: ' + e);
+      console.error(e);
+      alert('Erro na API');
+    }
+  });
+
+  container.querySelector('#btn-hoje-validacao')?.addEventListener('click', () => {
+    const d = new Date();
+    const str = d.toISOString().split('T')[0];
+    const input = container.querySelector('#drawer-data-validacao');
+    if (input) input.value = str;
+  });
+
+  container.querySelector('#btn-aprovar-05')?.addEventListener('click', async () => {
+    const dt = container.querySelector('#drawer-data-validacao').value;
+    if (!dt) return alert("Data da 1ª Validação é obrigatória para aprovação.");
+    
+    // 1. Atualizar dados
+    await fetch(`/api/servicos/${s.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data_primeira_validacao: dt, usuario_nome: 'Validador Cliente' })
+    });
+    
+    // 2. Tramitar para 08
+    const res = await fetch(`/api/servicos/${s.id}/tramitar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ novo_status_id: 8, usuario_nome: 'Validador Cliente' })
+    });
+    if (res.ok) {
+      const novos = store.getState().servicos.map(x => x.id === s.id ? { ...x, st: 8, data_primeira_validacao: dt } : x);
+      store.setState({ servicos: novos, drawerServicoId: null });
+      store.notifyToast('Serviço aprovado e enviado para Faturamento!');
+    }
+  });
+
+  container.querySelector('#btn-encaminhar-12')?.addEventListener('click', async () => {
+    const just = container.querySelector('#drawer-justificativa-11').value;
+    if (!just) return alert("Justificativa obrigatória.");
+    await fetch(`/api/servicos/${s.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ divergencia_conciliacao: just })
+    });
+    const res = await fetch(`/api/servicos/${s.id}/tramitar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ novo_status_id: 12 })
+    });
+    if (res.ok) {
+      const novos = store.getState().servicos.map(x => x.id === s.id ? { ...x, st: 12, divergencia_conciliacao: just } : x);
+      store.setState({ servicos: novos, drawerServicoId: null });
+      store.notifyToast('Enviado para Cobrança (Status 12)!');
+    }
+  });
+
+  container.querySelector('#btn-encaminhar-13')?.addEventListener('click', async () => {
+    const mes = container.querySelector('#drawer-mes-reapresentacao').value;
+    if (!mes) return alert("Mês de Reapresentação é obrigatório.");
+    await fetch(`/api/servicos/${s.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mes_reapresentacao: mes })
+    });
+    const res = await fetch(`/api/servicos/${s.id}/tramitar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ novo_status_id: 13 })
+    });
+    if (res.ok) {
+      const novos = store.getState().servicos.map(x => x.id === s.id ? { ...x, st: 13, mes_reapresentacao: mes } : x);
+      store.setState({ servicos: novos, drawerServicoId: null });
+      store.notifyToast('Disputa Iniciada (Status 13)!');
     }
   });
 

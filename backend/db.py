@@ -102,7 +102,8 @@ def buscar_servicos_db(contrato="todos", tipo="todos", status_id="todos", superv
                     id_cliente, cliente, endereco, cod_turno, placa_veiculo, modelo_veiculo,
                     coordenador, supervisor, equipe, membros_equipe, obs_servico,
                     tipo_equipe, tipo_obra, sistema_faturamento, mes_medicao_inicial,
-                    data_primeira_validacao, data_programacao
+                    data_primeira_validacao, data_programacao,
+                    valor_pago_cliente, mes_reapresentacao, divergencia_conciliacao
                 FROM servicos
                 WHERE 1=1
             """
@@ -208,7 +209,10 @@ def buscar_servicos_db(contrato="todos", tipo="todos", status_id="todos", superv
                     "sistema_faturamento": r.get("sistema_faturamento") or "",
                     "mes_medicao_inicial": r.get("mes_medicao_inicial") or "",
                     "data_primeira_validacao": str(r.get("data_primeira_validacao")) if r.get("data_primeira_validacao") else "",
-                    "data_programacao": str(r.get("data_programacao")) if r.get("data_programacao") else ""
+                    "data_programacao": str(r.get("data_programacao")) if r.get("data_programacao") else "",
+                    "valor_pago": float(r.get("valor_pago_cliente") or 0.0),
+                    "mes_reapresentacao": r.get("mes_reapresentacao") or "",
+                    "divergencia_conciliacao": r.get("divergencia_conciliacao") or ""
                 })
 
             return resultado
@@ -236,9 +240,9 @@ def tramitar_servico_db(servico_id, novo_status_id, usuario_nome="Analista Fecha
             
             status_atual = row["status_id"]
 
-            # RN-03: Bloqueio de avanço se estiver em pendência
-            if status_atual in (2, 4, 6) and novo_status_id in (3, 5, 7, 8, 13):
-                return {"status": "bloqueado", "mensagem": "RN-03: Bloqueado! Existem pendências ativas que impedem o avanço para validação/faturamento."}
+            # RN-03: Bloqueio de avanço se estiver em pendência (só permite retornar para 1 ou 3)
+            if status_atual in (2, 4, 6, 7) and novo_status_id not in (1, 3):
+                return {"status": "bloqueado", "mensagem": "RN-03: Bloqueado! Existem pendências ativas que impedem o avanço direto para validação/faturamento."}
 
             cursor.execute("UPDATE servicos SET status_id = %s, updated_at = NOW() WHERE id = %s", (novo_status_id, servico_id))
             conn.commit()
@@ -246,9 +250,104 @@ def tramitar_servico_db(servico_id, novo_status_id, usuario_nome="Analista Fecha
         # RN-01: Log de Auditoria
         registrar_log_auditoria(servico_id, usuario_nome, usuario_email, "status_id", status_atual, novo_status_id)
 
+        # Log Global de Ações
+        desc_tech = {"de": status_atual, "para": novo_status_id}
+        desc_human = f"{usuario_nome} tramitou o serviço {servico_id} do status 0{status_atual} para 0{novo_status_id}."
+        registrar_acao_global(usuario_nome, usuario_email, "TRAMITACAO_STATUS", servico_id, desc_tech, desc_human)
+
         return {"status": "sucesso", "status_anterior": status_atual, "novo_status": novo_status_id}
     except Exception as e:
         print(f"[Erro Tramitação] {e}")
         return {"status": "erro", "mensagem": str(e)}
+    finally:
+        conn.close()
+
+def atualizar_dados_servico_db(servico_id, dados, usuario_nome="Analista", usuario_email="analista@cosampa.com.br"):
+    """
+    Atualiza campos específicos de um serviço e gera log de auditoria (RN-01).
+    """
+    conn = get_db_connection()
+    if not conn:
+        return {"status": "erro", "mensagem": "Falha na conexão"}
+    
+    try:
+        with conn.cursor() as cursor:
+            # Pega valores antigos para o log
+            cursor.execute("SELECT * FROM servicos WHERE id = %s", (servico_id,))
+            old_row = cursor.fetchone()
+            if not old_row:
+                return {"status": "erro", "mensagem": "Serviço não encontrado"}
+            
+            updates = []
+            params = []
+            logs_gerados = []
+            
+            for k, v in dados.items():
+                # Ignorar chaves que não devem ser atualizadas diretamente ou que não existem
+                if k in ["id", "status_id", "created_at", "updated_at"]:
+                    continue
+                updates.append(f"{k} = %s")
+                params.append(v)
+                old_val = old_row.get(k)
+                if old_val != v:
+                    logs_gerados.append((k, old_val, v))
+            
+            if not updates:
+                return {"status": "sucesso", "mensagem": "Nenhum dado alterado."}
+                
+            updates.append("updated_at = NOW()")
+            sql = f"UPDATE servicos SET {', '.join(updates)} WHERE id = %s"
+            params.append(servico_id)
+            
+            cursor.execute(sql, tuple(params))
+            conn.commit()
+            
+        for campo, val_ant, val_novo in logs_gerados:
+            registrar_log_auditoria(servico_id, usuario_nome, usuario_email, campo, val_ant, val_novo)
+            
+            # Log Global de Ações
+            desc_tech = {"campo": campo, "de": str(val_ant), "para": str(val_novo)}
+            desc_human = f"{usuario_nome} atualizou '{campo}' de '{val_ant}' para '{val_novo}' no serviço {servico_id}."
+            registrar_acao_global(usuario_nome, usuario_email, "EDICAO_DADOS", servico_id, desc_tech, desc_human)
+            
+        return {"status": "sucesso"}
+    except Exception as e:
+        print(f"[Erro Atualização DB] {e}")
+        return {"status": "erro", "mensagem": str(e)}
+    finally:
+        conn.close()
+
+import json
+
+def registrar_acao_global(usuario_nome, usuario_email, acao_tipo, entidade_id, descricao_tecnica, descricao_humanizada):
+    """ Grava log detalhado de ação de negócio no sistema """
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        if isinstance(descricao_tecnica, dict):
+            descricao_tecnica = json.dumps(descricao_tecnica, ensure_ascii=False)
+            
+        with conn.cursor() as cursor:
+            sql = """
+                INSERT INTO registro_acoes 
+                    (data_hora, usuario_nome, usuario_email, acao_tipo, entidade_id, descricao_tecnica, descricao_humanizada)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cursor.execute(sql, (
+                now_str, 
+                usuario_nome, 
+                usuario_email, 
+                acao_tipo, 
+                str(entidade_id), 
+                descricao_tecnica, 
+                descricao_humanizada
+            ))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"[Erro Log Ação] Falha ao gravar registro global: {e}")
+        return False
     finally:
         conn.close()
