@@ -105,11 +105,15 @@ def obter_logs_auditoria(servico_id):
 
 @app.route("/api/servicos/lote/enviar-validacao", methods=["POST"])
 def enviar_lote_validacao():
+    """ CDU-02: Consolidar e Enviar para Validação do Cliente """
     data = request.json or {}
     ids = data.get("servico_ids", [])
     sistema_fat = data.get("sistema_faturamento", "Eorder")
-    mes_inicial = data.get("mes_medicao_inicial", "08/2026")
+    mes_inicial = data.get("mes_medicao_inicial", "")
     usuario_nome = data.get("usuario_nome", "Analista Fechamento")
+
+    if not mes_inicial:
+        return jsonify({"status": "erro", "mensagem": "Mês de Medição Inicial (MM/AAAA) é obrigatório."}), 400
 
     sucessos = 0
     for sid in ids:
@@ -120,6 +124,34 @@ def enviar_lote_validacao():
             sucessos += 1
 
     return jsonify({"status": "sucesso", "tramitados": sucessos, "total": len(ids)})
+
+@app.route("/api/servicos/lote/importar-rejeicoes", methods=["POST"])
+def importar_rejeicoes_lote():
+    """ CDU-06 / CDU-07: Importação em Lote de Rejeições do Cliente com Roteamento Automático """
+    data = request.json or {}
+    rejeicoes = data.get("rejeicoes", [])
+    usuario_nome = data.get("usuario_nome", "Analista Fechamento")
+
+    sucessos = 0
+    for r in rejeicoes:
+        sid = r.get("id")
+        motivo = r.get("motivo", "Rejeição informada pelo cliente")
+        destino_tipo = r.get("destino", "") # 'operacao' ou 'fechamento'
+
+        # RN de Roteamento Padrão: Se omitido, direciona automaticamente para Status 06 (Fechamento)
+        status_destino = 7 if destino_tipo.lower() == 'operacao' else 6
+
+        res = tramitar_servico_db(sid, status_destino, usuario_nome)
+        if res.get("status") == "sucesso":
+            registrar_log_auditoria(sid, usuario_nome, "cliente@distribuidora.com", "motivo_rejeicao_cliente", "", motivo)
+            sucessos += 1
+
+    return jsonify({
+        "status": "sucesso",
+        "processados": sucessos,
+        "total": len(rejeicoes),
+        "roteamento_padrao": "Status 06 (Rejeitado Fechamento)"
+    })
 
 @app.route("/api/supervisores", methods=["GET"])
 def listar_supervisores():

@@ -594,23 +594,33 @@ function renderMedicao(svcs, state) {
   container.innerHTML = `
     <div style="display:flex;gap:14px;align-items:flex-start">
       <div style="flex:1;min-width:0;background:#fff;border:1px solid var(--border-subtle);border-radius:10px;overflow:hidden">
+        <!-- Barra de Ações Rápidas em Lote -->
+        <div style="padding:10px 14px;background:#f8faf9;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:12px;font-weight:700;color:#1c5f4b">Ações de Medição & Validação (CDU-01 / CDU-02 / CDU-06)</span>
+          <div style="display:flex;gap:8px">
+            <button id="btn-modal-cdu02" class="btn-primary" style="font-size:11px;padding:5px 10px">🚀 Enviar Lote p/ Validação (CDU-02)</button>
+            <button id="btn-modal-cdu06" class="btn-secondary" style="font-size:11px;padding:5px 10px">📥 Importar Rejeições Cliente (CDU-06)</button>
+          </div>
+        </div>
+
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead>
             <tr style="background:#f7f9f8;border-bottom:1px solid var(--border-subtle);text-align:left;font-size:10.5px;color:#71807a;font-weight:700">
               <th style="padding:10px 12px;width:28px"><input type="checkbox" id="check-all-med"></th>
               <th style="padding:10px">STATUS</th>
               <th style="padding:10px">SERVIÇO</th>
+              <th style="padding:10px">PEP OBRA / TDC</th>
               <th style="padding:10px">CONTRATO</th>
-              <th style="padding:10px">DATA</th>
-              <th style="padding:10px">BASE</th>
+              <th style="padding:10px">ORIGEM</th>
               <th style="padding:10px;text-align:right">VALOR</th>
               <th style="padding:10px">RETORNO</th>
             </tr>
           </thead>
           <tbody>
-            ${pagItens.map(s => {
+            ${pagItens.map((s, idx) => {
               const def = STATUS_DEFS[s.st] || STATUS_DEFS[1];
               const isSel = state.selecionados.includes(s.id);
+              const isIrma = idx > 0 && pagItens[idx-1].ct === s.ct;
               return `
                 <tr class="row-svc" data-id="${s.id}" style="border-bottom:1px solid #eef1f0;background:${isSel ? '#eaf2ee' : '#fff'};cursor:pointer">
                   <td style="padding:10px 12px" onclick="event.stopPropagation()">
@@ -622,11 +632,14 @@ function renderMedicao(svcs, state) {
                     </span>
                   </td>
                   <td style="padding:10px">
-                    <b>${s.id}</b><br><small style="color:#71807a">${s.ob} · ${s.tp}</small>
+                    <b>${s.id}</b> ${isIrma ? `<span style="background:#e0f2fe;color:#0369a1;font-size:9.5px;padding:2px 5px;border-radius:4px;font-weight:700">SOB Irmã</span>` : ''}<br>
+                    <small style="color:#71807a">${s.ob} · ${s.tp}</small>
+                  </td>
+                  <td style="padding:10px;font-family:var(--font-mono);font-size:11px">
+                    <b>${s.pep||'—'}</b><br><small style="color:#71807a">${s.tdc||'—'}</small>
                   </td>
                   <td style="padding:10px;font-weight:600;font-size:11px">${s.ct}</td>
-                  <td style="padding:10px;font-family:var(--font-mono)">${s.data || '—'}</td>
-                  <td style="padding:10px">${s.dep || '—'}</td>
+                  <td style="padding:10px;font-family:var(--font-mono);font-size:11px">${s.origem || 'PDA'}</td>
                   <td style="padding:10px;text-align:right;font-weight:600;font-family:var(--font-mono)">R$ ${s.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
                   <td style="padding:10px;font-size:11px;color:#71807a">${s.ret || '—'}</td>
                 </tr>
@@ -690,6 +703,68 @@ function renderMedicao(svcs, state) {
       const id = row.getAttribute('data-id');
       store.setState({ drawerServicoId: id });
     });
+  });
+
+  // Modal CDU-02: Enviar Lote para Validação do Cliente
+  container.querySelector('#btn-modal-cdu02')?.addEventListener('click', async () => {
+    if (state.selecionados.length === 0) return alert('Selecione pelo menos 1 serviço para enviar em lote.');
+    const sistemaFat = prompt('Informe o Sistema de Faturamento (ex: Eorder, Synergia, SacBt):', 'Eorder');
+    if (!sistemaFat) return;
+    const mesInicial = prompt('Informe o Mês de Medição Inicial (OBRIGATÓRIO formatado como MM/AAAA):', '08/2026');
+    if (!mesInicial) return alert('O Mês de Medição Inicial (MM/AAAA) é obrigatório (CDU-02).');
+
+    try {
+      const res = await fetch('/api/servicos/lote/enviar-validacao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          servico_ids: state.selecionados,
+          sistema_faturamento: sistemaFat,
+          mes_medicao_inicial: mesInicial,
+          usuario_nome: 'Analista Fechamento'
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'sucesso') {
+        const novos = store.getState().servicos.map(s => state.selecionados.includes(s.id) ? { ...s, st: 5, sistema_faturamento: sistemaFat, mes_medicao_inicial: mesInicial } : s);
+        store.setState({ servicos: novos, selecionados: [] });
+        store.notifyToast(`CDU-02: ${data.tramitados} serviço(s) enviados para 05. Aguardando Validação do Cliente (Mês: ${mesInicial})!`);
+      } else {
+        alert(data.mensagem || 'Falha ao enviar lote.');
+      }
+    } catch (e) {
+      alert('Erro na requisição: ' + e);
+    }
+  });
+
+  // Modal CDU-06: Importar Rejeições do Cliente com Roteamento Padrão para Status 06
+  container.querySelector('#btn-modal-cdu06')?.addEventListener('click', async () => {
+    const rawIds = prompt('Digite o ID das SOBs rejeitadas pelo cliente separadas por vírgula (ex: SOB-300001525, SOB-300001608):');
+    if (!rawIds) return;
+    const arr = rawIds.split(',').map(x => x.trim()).filter(Boolean);
+    if (arr.length === 0) return;
+
+    const destinoInput = prompt('Informe o destino da rejeição (digite "operacao" para Status 07 ou DEIXE EM BRANCO para aplicar a RN de Roteamento Padrão -> Status 06. Fechamento):', '');
+
+    try {
+      const rejeicoesPayload = arr.map(id => ({ id, motivo: 'Rejeição importada do cliente', destino: destinoInput }));
+      const res = await fetch('/api/servicos/lote/importar-rejeicoes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rejeicoes: rejeicoesPayload, usuario_nome: 'Analista Fechamento' })
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'sucesso') {
+        const targetSt = destinoInput.toLowerCase() === 'operacao' ? 7 : 6;
+        const novos = store.getState().servicos.map(s => arr.includes(s.id) ? { ...s, st: targetSt } : s);
+        store.setState({ servicos: novos, selecionados: [] });
+        store.notifyToast(`CDU-06: ${data.processados} rejeição(ões) processada(s) com Roteamento Padrão para Status 0${targetSt}!`);
+      } else {
+        alert(data.mensagem || 'Falha ao importar rejeições.');
+      }
+    } catch (e) {
+      alert('Erro na requisição: ' + e);
+    }
   });
 
   container.querySelector('#btn-apply-bulk')?.addEventListener('click', () => {
