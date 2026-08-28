@@ -194,9 +194,10 @@ class Store {
       if (f.contrato !== 'todos' && s.ct !== f.contrato) return false;
       if (f.tipo !== 'todos' && s.tp !== f.tipo) return false;
       if (f.status && f.status !== 'todos' && s.st !== Number(f.status)) return false;
+      if (f.supervisor && f.supervisor !== 'todos' && s.supervisor !== f.supervisor) return false;
       if (f.busca) {
         const q = f.busca.toLowerCase();
-        if (!`${s.id} ${s.ob} ${s.tp} ${s.ct}`.toLowerCase().includes(q)) return false;
+        if (!`${s.id} ${s.ob} ${s.tp} ${s.ct} ${s.pep||''} ${s.tdc||''} ${s.supervisor||''} ${s.equipe||''}`.toLowerCase().includes(q)) return false;
       }
       return true;
     });
@@ -404,6 +405,7 @@ function renderPageUI(pageId, state) {
   if (filterBar && pageId !== 'gestao_acessos') {
     const contratosUnicos = Array.from(new Set(state.servicos.map(s => s.ct))).filter(Boolean);
     const tiposUnicos = Array.from(new Set(state.servicos.map(s => s.tp))).filter(Boolean);
+    const supervisoresUnicos = Array.from(new Set(state.servicos.map(s => s.supervisor))).filter(Boolean);
 
     filterBar.innerHTML = `
       <div class="filter-bar">
@@ -423,7 +425,11 @@ function renderPageUI(pageId, state) {
           <option value="todos" ${state.filtros.status==='todos'?'selected':''}>Todos os status (15)</option>
           ${Object.keys(STATUS_DEFS).map(k => `<option value="${k}" ${state.filtros.status===k?'selected':''}>0${k}. ${STATUS_DEFS[k].n}</option>`).join('')}
         </select>
-        <input id="f-busca" class="text-input" value="${state.filtros.busca}" placeholder="Buscar SOB, obra, contrato..." style="width:220px">
+        <select id="f-supervisor" class="select-input" title="Filtro Hierárquico de Supervisor (RN-05)">
+          <option value="todos" ${state.filtros.supervisor==='todos'?'selected':''}>Supervisores (RN-05)</option>
+          ${supervisoresUnicos.map(sup => `<option value="${sup}" ${state.filtros.supervisor===sup?'selected':''}>👤 ${sup}</option>`).join('')}
+        </select>
+        <input id="f-busca" class="text-input" value="${state.filtros.busca}" placeholder="Buscar SOB, PEP, TDC, obra..." style="width:200px">
       </div>
     `;
     filterBar.querySelector('#f-contrato')?.addEventListener('change', (e) => {
@@ -434,6 +440,9 @@ function renderPageUI(pageId, state) {
     });
     filterBar.querySelector('#f-status')?.addEventListener('change', (e) => {
       store.setState({ filtros: { ...store.getState().filtros, status: e.target.value }, paginaAtual: 1 });
+    });
+    filterBar.querySelector('#f-supervisor')?.addEventListener('change', (e) => {
+      store.setState({ filtros: { ...store.getState().filtros, supervisor: e.target.value }, paginaAtual: 1 });
     });
     filterBar.querySelector('#f-busca')?.addEventListener('input', (e) => {
       store.setState({ filtros: { ...store.getState().filtros, busca: e.target.value }, paginaAtual: 1 });
@@ -759,7 +768,7 @@ function renderPendencias(svcs, state) {
         ${renderPaginador(svcs.length, pag, 10)}
       </div>
 
-      <div style="width:320px;background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
+      <div style="width:360px;background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
         ${foco ? `
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
             <h3 style="margin:0;font-size:15px;font-family:var(--font-mono)">${foco.id}</h3>
@@ -767,25 +776,44 @@ function renderPendencias(svcs, state) {
           </div>
 
           <span class="badge-status" style="background:#ffedd5;color:#9a3412;margin-bottom:12px">
-            <span class="badge-status-num">02</span> Pendências Operacionais
+            <span class="badge-status-num">0${foco.st}</span> ${STATUS_DEFS[foco.st]?.n || 'Pendências'}
           </span>
 
-          <div style="margin-top:10px">
-            <div class="card-pendencia">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <div style="display:flex;align-items:center;gap:8px">
-                  <span style="font-size:13px;font-weight:700">${foco.ret || 'Pendência de Campo'}</span>
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:11px;color:#71807a">Supervisor: <b>${foco.supervisor || '—'}</b> · Equipe: <b>${foco.equipe || '—'}</b></div>
+            
+            <div style="font-weight:700;font-size:12px;color:#1c5f4b">Itens de Correção Cosampa (RN-04)</div>
+            ${(foco.pend && foco.pend.length > 0 ? foco.pend : [
+              { t: 'Evidências de Fotos de Campo', tr: false, det: foco.ret || 'Retorno de campo', anx: null },
+              { t: 'Materiais Aplicados / Retirados', tr: false, det: 'Aguardando verificação', anx: null }
+            ]).map((item, idx) => `
+              <div class="card-pendencia" style="background:#fcfdfd;border:1px solid #eef1f0;padding:10px;border-radius:8px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                  <span style="font-size:12px;font-weight:700">${item.t}</span>
+                  <label style="font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px">
+                    <input type="checkbox" class="check-item-tratado" data-idx="${idx}" ${item.tr ? 'checked' : ''}>
+                    <span style="color:${item.tr ? '#16a34a' : '#dc2626'};font-weight:700">${item.tr ? 'TRATADO' : 'PENDENTE'}</span>
+                  </label>
                 </div>
-                <span class="badge-pend-status badge-pend-pendente">PENDENTE</span>
+                <input class="text-input input-det-pend-${idx}" value="${item.det || ''}" placeholder="Justificativa técnica..." style="width:100%;font-size:11px;margin-bottom:6px">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <button class="btn-anexo btn-trigger-anexo-${idx}" style="font-size:11px;padding:3px 8px">+ Anexo Evidência</button>
+                  <span class="file-name-span-${idx}" style="font-size:10.5px;color:#71807a">${item.anx ? item.anx : 'Nenhum anexo'}</span>
+                </div>
               </div>
+            `).join('')}
 
-              <input class="text-input input-det-pend" value="" placeholder="Detalhamento da tratativa..." style="width:100%;font-size:11.5px">
-
-              <div style="display:flex;align-items:center;gap:8px">
-                <button class="btn-anexo btn-trigger-anexo">+ Anexo</button>
-                <input type="file" class="file-input-hidden" style="display:none">
+            <div style="border-top:1px solid var(--border-subtle);padding-top:8px">
+              <label style="font-size:11.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">
+                <input type="checkbox" id="check-reprogramar"> Necessita Reprogramar Visitada em Campo
+              </label>
+              <div id="box-reprogramacao" style="display:none;margin-top:6px">
+                <span style="font-size:11px;color:#71807a">Data da Programação (obrigatório):</span>
+                <input type="date" id="input-dt-reprogramacao" class="text-input" style="width:100%;margin-top:4px">
               </div>
             </div>
+
+            <button id="btn-salvar-tratativa-rn04" class="btn-primary" style="width:100%;margin-top:4px">Salvar Tratativa & Retorno Automático (RN-04)</button>
           </div>
         ` : `<div style="color:#71807a">Nenhum serviço em pendência operacional nesta amostragem.</div>`}
       </div>
@@ -793,6 +821,49 @@ function renderPendencias(svcs, state) {
   `;
 
   bindPaginadorEvents(container, svcs.length);
+
+  container.querySelector('#check-reprogramar')?.addEventListener('change', (e) => {
+    container.querySelector('#box-reprogramacao').style.display = e.target.checked ? 'block' : 'none';
+  });
+
+  container.querySelector('#btn-salvar-tratativa-rn04')?.addEventListener('click', async () => {
+    if (!foco) return;
+    const cbs = container.querySelectorAll('.check-item-tratado');
+    let totalItems = cbs.length;
+    let tratadosCount = 0;
+    cbs.forEach(cb => { if (cb.checked) tratadosCount++; });
+
+    const necessitaReprog = container.querySelector('#check-reprogramar')?.checked;
+    const dtReprog = container.querySelector('#input-dt-reprogramacao')?.value;
+
+    if (necessitaReprog && !dtReprog) {
+      return alert('Preencha a Data da Programação para a reprogramação do serviço.');
+    }
+
+    if (tratadosCount === totalItems && totalItems > 0) {
+      // RN-04: Retorno Automático para Status 01 (Aguardando Conferência) ou 03
+      const statusRetorno = foco.st === 7 ? 3 : 1;
+      try {
+        const res = await fetch(`/api/servicos/${foco.id}/tramitar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ novo_status_id: statusRetorno, usuario_nome: 'Supervisor Operacional' })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'sucesso') {
+          const novos = store.getState().servicos.map(x => x.id === foco.id ? { ...x, st: statusRetorno, pend: [] } : x);
+          store.setState({ servicos: novos, servicoFocoId: null });
+          store.notifyToast(`RN-04: 100% dos itens tratados! SOB ${foco.id} retornou automaticamente para 0${statusRetorno}. Aguardando Conferência!`);
+        } else {
+          alert(data.mensagem || 'Erro ao realizar retorno automático.');
+        }
+      } catch (e) {
+        alert('Erro de requisição: ' + e);
+      }
+    } else {
+      store.notifyToast(`Tratativa parcial gravada (${tratadosCount}/${totalItems} itens tratados). SOB mantida em pendências.`);
+    }
+  });
 
   container.querySelectorAll('.row-foco').forEach(row => {
     row.addEventListener('click', () => {
@@ -999,26 +1070,129 @@ function renderDrawer(state) {
   const s = state.servicos.find(x => x.id === state.drawerServicoId);
   if (!s) return;
 
+  const stDef = STATUS_DEFS[s.st] || STATUS_DEFS[1];
+
   container.innerHTML = `
-    <div class="drawer-panel">
-      <div style="padding:16px 20px;border-bottom:1px solid var(--border-subtle);display:flex;justify-content:space-between;align-items:center">
+    <div class="drawer-panel" style="width:480px;background:#fff;border-left:1px solid var(--border-subtle);display:flex;flex-direction:column;position:fixed;right:0;top:0;bottom:0;z-index:9999;box-shadow:-4px 0 20px rgba(0,0,0,0.1)">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border-subtle);display:flex;justify-content:space-between;align-items:center;background:#f8faf9">
         <div>
-          <h3 style="margin:0">${s.id} — R$ ${s.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h3>
-          <span style="font-size:11.5px;color:#71807a">${s.ob} (${s.tp})</span>
+          <h3 style="margin:0;font-size:16px;font-family:var(--font-mono)">${s.id} — R$ ${s.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h3>
+          <span style="font-size:11.5px;color:#71807a">PEP: <b>${s.pep||'—'}</b> · TDC: <b>${s.tdc||'—'}</b></span>
         </div>
-        <button id="btn-close-drawer" style="background:none;border:none;font-size:22px;cursor:pointer">×</button>
+        <button id="btn-close-drawer" style="background:none;border:none;font-size:24px;cursor:pointer;color:#71807a">×</button>
       </div>
-      <div style="padding:20px;flex:1;overflow-y:auto;font-size:12px">
-        <p><b>Contrato:</b> ${s.ct}</p>
-        <p><b>Status Atual:</b> 0${s.st}. ${STATUS_DEFS[s.st]?.n || 'Status'}</p>
-        <p><b>Centro de Serviço:</b> ${s.dep || '—'}</p>
-        <p><b>Data Execução / Geração:</b> ${s.data || '—'}</p>
-        <p><b>Retorno de Campo:</b> ${s.ret || '—'}</p>
+
+      <div style="padding:16px 20px;flex:1;overflow-y:auto;font-size:12px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span class="badge-status" style="background:${stDef.bg};color:${stDef.fg};font-size:12px;padding:4px 10px">
+            <span class="badge-status-num">0${s.st}</span> ${stDef.n}
+          </span>
+          <span style="font-size:11px;color:#5b6b65">SLA: <b>${s.d || 3} dias</b></span>
+        </div>
+
+        <!-- Seção 1: Dados do Serviço (GPM) -->
+        <div style="background:#f7f9f8;padding:12px;border-radius:8px;border:1px solid #eef1f0">
+          <div style="font-weight:700;font-size:12px;margin-bottom:8px;color:#1c5f4b">📍 Informações da Atividade de Campo</div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px">
+            <div><b>Contrato:</b> ${s.ct}</div>
+            <div><b>Origem:</b> ${s.origem || 'PDA'}</div>
+            <div><b>Tipo Atividade:</b> ${s.tp}</div>
+            <div><b>Centro Serviço:</b> ${s.dep || '—'}</div>
+            <div><b>Data Execução:</b> ${s.data || '—'}</div>
+            <div><b>Incidência:</b> ${s.incidencia || '—'}</div>
+          </div>
+          <div style="margin-top:6px"><b>Local da Obra:</b> ${s.ob}</div>
+          <div><b>Endereço:</b> ${s.endereco || s.ob}</div>
+        </div>
+
+        <!-- Seção 2: Equipe e Veículo -->
+        <div style="background:#f7f9f8;padding:12px;border-radius:8px;border:1px solid #eef1f0">
+          <div style="font-weight:700;font-size:12px;margin-bottom:8px;color:#1c5f4b">👥 Hierarquia e Equipe de Campo (RN-05)</div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px">
+            <div><b>Coordenador:</b> ${s.coordenador || '—'}</div>
+            <div><b>Supervisor:</b> ${s.supervisor || '—'}</div>
+            <div><b>Equipe:</b> ${s.equipe || '—'}</div>
+            <div><b>Turno:</b> ${s.turno || '—'}</div>
+            <div><b>Placa Veículo:</b> ${s.placa || '—'}</div>
+            <div><b>Modelo Veículo:</b> ${s.modelo_veiculo || '—'}</div>
+          </div>
+          <div style="margin-top:6px"><b>Membros:</b> ${s.membros || '—'}</div>
+        </div>
+
+        <!-- Seção 3: Tramitação com Trava RN-03 -->
+        <div style="background:#fff;border:1px solid var(--border-subtle);padding:14px;border-radius:8px">
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px">⚡ Tramitar Status (CDU-01 / RN-03)</div>
+          <div style="font-size:11px;color:#71807a;margin-bottom:8px">Avanço bloqueado automaticamente se houver pendência pendente (RN-03).</div>
+          <div style="display:flex;gap:8px">
+            <select id="drawer-select-next-status" class="select-input" style="flex:1">
+              ${Object.keys(STATUS_DEFS).map(k => `<option value="${k}" ${s.st===Number(k)?'selected':''}>0${k}. ${STATUS_DEFS[k].n}</option>`).join('')}
+            </select>
+            <button id="drawer-btn-tramitar" class="btn-primary">Avançar</button>
+          </div>
+        </div>
+
+        <!-- Seção 4: Log de Auditoria RN-01 -->
+        <div style="border-top:1px solid var(--border-subtle);padding-top:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="font-weight:700;font-size:12px">📜 Histórico de Auditoria (RN-01)</div>
+            <button id="btn-load-auditoria" class="btn-secondary" style="font-size:11px;padding:4px 8px">Carregar Logs</button>
+          </div>
+          <div id="auditoria-list-container" style="max-height:140px;overflow-y:auto;background:#fafcfb;padding:8px;border-radius:6px;border:1px solid #eef1f0;font-size:11px;color:#5b6b65">
+            Clique no botão acima para carregar os logs de auditoria desta SOB.
+          </div>
+        </div>
       </div>
     </div>
   `;
 
   container.querySelector('#btn-close-drawer')?.addEventListener('click', () => store.setState({ drawerServicoId: null }));
+
+  container.querySelector('#drawer-btn-tramitar')?.addEventListener('click', async () => {
+    const nxt = container.querySelector('#drawer-select-next-status').value;
+    if (!nxt) return;
+    try {
+      const res = await fetch(`/api/servicos/${s.id}/tramitar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ novo_status_id: Number(nxt), usuario_nome: 'Analista Fechamento' })
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'sucesso') {
+        const novos = store.getState().servicos.map(x => x.id === s.id ? { ...x, st: Number(nxt) } : x);
+        store.setState({ servicos: novos, drawerServicoId: null });
+        store.notifyToast(`SOB ${s.id} tramitada com sucesso para 0${nxt}!`);
+      } else {
+        alert(data.mensagem || 'Falha ao tramitar serviço.');
+      }
+    } catch (e) {
+      alert('Erro na requisição: ' + e);
+    }
+  });
+
+  container.querySelector('#btn-load-auditoria')?.addEventListener('click', async () => {
+    const listCont = container.querySelector('#auditoria-list-container');
+    listCont.innerHTML = 'Carregando logs...';
+    try {
+      const res = await fetch(`/api/servicos/${s.id}/auditoria`);
+      if (res.ok) {
+        const logs = await res.json();
+        if (logs.length === 0) {
+          listCont.innerHTML = 'Nenhum log de auditoria registrado para esta SOB até o momento.';
+        } else {
+          listCont.innerHTML = logs.map(l => `
+            <div style="border-bottom:1px solid #eef1f0;padding:4px 0;margin-bottom:4px">
+              <b>${l.usuario_nome}</b> (${l.data_hora})<br>
+              Campo <i>${l.campo_alterado}</i>: de <span style="color:#b03a28">${l.valor_anterior}</span> ➔ <span style="color:#1c5f4b">${l.novo_valor}</span>
+            </div>
+          `).join('');
+        }
+      } else {
+        listCont.innerHTML = 'Erro ao buscar auditoria.';
+      }
+    } catch (e) {
+      listCont.innerHTML = 'Erro de rede ao buscar logs.';
+    }
+  });
 }
 
 function renderToast(msg) {

@@ -13,7 +13,7 @@ except ImportError:
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from data import PERFIS_DB, USUARIOS_DB, SERVICOS_DB
-from db import buscar_servicos_db
+from db import buscar_servicos_db, tramitar_servico_db, buscar_logs_auditoria, registrar_log_auditoria
 from etl_sync import executar_sincronizacao_etl
 
 app = Flask(__name__, static_folder="../frontend")
@@ -75,13 +75,57 @@ def listar_servicos():
     contrato = request.args.get("contrato", "todos")
     tipo = request.args.get("tipo", "todos")
     status_id = request.args.get("status_id", "todos")
+    supervisor = request.args.get("supervisor", "todos")
     busca = request.args.get("busca", "")
 
-    # Consulta EXCLUSIVAMENTE o banco secundario de utilizacao do sistema (siges_app.servicos)
-    dados_reais = buscar_servicos_db(contrato=contrato, tipo=tipo, status_id=status_id, busca=busca)
+    dados_reais = buscar_servicos_db(contrato=contrato, tipo=tipo, status_id=status_id, supervisor=supervisor, busca=busca)
     resultado = dados_reais if dados_reais is not None else []
 
     return jsonify(resultado)
+
+@app.route("/api/servicos/<servico_id>/tramitar", methods=["POST"])
+def tramitar_servico(servico_id):
+    data = request.json or {}
+    novo_status = data.get("novo_status_id")
+    usuario_nome = data.get("usuario_nome", "Analista Fechamento")
+    usuario_email = data.get("usuario_email", "analista@cosampa.com.br")
+
+    if not novo_status:
+        return jsonify({"status": "erro", "mensagem": "novo_status_id é obrigatório"}), 400
+
+    res = tramitar_servico_db(servico_id, int(novo_status), usuario_nome, usuario_email)
+    if res.get("status") == "bloqueado":
+        return jsonify(res), 400
+    return jsonify(res)
+
+@app.route("/api/servicos/<servico_id>/auditoria", methods=["GET"])
+def obter_logs_auditoria(servico_id):
+    logs = buscar_logs_auditoria(servico_id)
+    return jsonify(logs)
+
+@app.route("/api/servicos/lote/enviar-validacao", methods=["POST"])
+def enviar_lote_validacao():
+    data = request.json or {}
+    ids = data.get("servico_ids", [])
+    sistema_fat = data.get("sistema_faturamento", "Eorder")
+    mes_inicial = data.get("mes_medicao_inicial", "08/2026")
+    usuario_nome = data.get("usuario_nome", "Analista Fechamento")
+
+    sucessos = 0
+    for sid in ids:
+        res = tramitar_servico_db(sid, 5, usuario_nome)
+        if res.get("status") == "sucesso":
+            registrar_log_auditoria(sid, usuario_nome, "analista@cosampa.com.br", "sistema_faturamento", "", sistema_fat)
+            registrar_log_auditoria(sid, usuario_nome, "analista@cosampa.com.br", "mes_medicao_inicial", "", mes_inicial)
+            sucessos += 1
+
+    return jsonify({"status": "sucesso", "tramitados": sucessos, "total": len(ids)})
+
+@app.route("/api/supervisores", methods=["GET"])
+def listar_supervisores():
+    dados = buscar_servicos_db(limit=500)
+    sups = sorted(list(set(s.get("supervisor") for s in dados if s.get("supervisor"))))
+    return jsonify(sups)
 
 @app.route("/api/dashboard/kpis", methods=["GET"])
 def kpis():
