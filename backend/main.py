@@ -2,6 +2,8 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import os
 import sys
+from werkzeug.utils import secure_filename
+import pandas as pd
 
 # Carrega variáveis de ambiente do arquivo .env caso exista
 try:
@@ -13,7 +15,7 @@ except ImportError:
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from data import PERFIS_DB, USUARIOS_DB, SERVICOS_DB
-from db import buscar_servicos_db, tramitar_servico_db, buscar_logs_auditoria, registrar_log_auditoria, atualizar_dados_servico_db
+from db import buscar_servicos_db, tramitar_servico_db, buscar_logs_auditoria, registrar_log_auditoria, atualizar_dados_servico_db, processar_importacao_dinamica
 from etl_sync import executar_sincronizacao_etl
 
 app = Flask(__name__, static_folder="../frontend")
@@ -230,6 +232,81 @@ def atualizar_permissoes(nome_perfil):
     data = request.json or {}
     PERFIS_DB[nome_perfil]["telas"] = data.get("telas", [])
     return jsonify(PERFIS_DB[nome_perfil])
+
+# --- CDU-08: IMPORTACAO DE PLANILHAS ---
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+@app.route("/api/servicos/upload-temp", methods=["POST"])
+def upload_temp_planilha():
+    if 'file' not in request.files:
+        return jsonify({"status": "erro", "mensagem": "Nenhum arquivo enviado"}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"status": "erro", "mensagem": "Nenhum arquivo selecionado"}), 400
+        
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(filepath)
+    
+    try:
+        xl = pd.ExcelFile(filepath)
+        abas = xl.sheet_names
+        return jsonify({"arquivo_temp_id": filename, "abas": abas})
+    except Exception as e:
+        return jsonify({"status": "erro", "mensagem": f"Erro ao ler arquivo: {str(e)}"}), 500
+
+@app.route("/api/servicos/pre-visualizar", methods=["POST"])
+def pre_visualizar_planilha():
+    data = request.json or {}
+    arquivo_temp_id = data.get("arquivo_temp_id")
+    aba = data.get("aba_selecionada")
+    linha_cabecalho = data.get("linha_cabecalho", 0)
+    
+    if not arquivo_temp_id or not aba:
+        return jsonify({"status": "erro", "mensagem": "Arquivo ou aba não informados"}), 400
+        
+    filepath = os.path.join(UPLOAD_FOLDER, arquivo_temp_id)
+    try:
+        # Le apenas as primeiras 10 linhas para preview sem engolir a primeira linha (header=None)
+        df = pd.read_excel(filepath, sheet_name=aba, header=None, nrows=10)
+        
+        # Converte para dict bruto
+        raw_linhas = df.to_dict(orient='records')
+        
+        # Limpeza 100% segura usando Python nativo (livre de regressoes do pandas com None/NaN)
+        linhas_limpas = []
+        for row in raw_linhas:
+            clean_row = {}
+            for k, v in row.items():
+                # Se for NaN real do pandas/numpy ou string de nulo, vira None (null no JSON)
+                if pd.isna(v) or str(v).strip() in ['nan', 'NaN', 'NaT', 'None', '<NA>', '']:
+                    clean_row[str(k)] = None
+                else:
+                    # Converte forcadamente datas e tempos para string para evitar erro de serializacao
+                    clean_row[str(k)] = str(v)
+            linhas_limpas.append(clean_row)
+            
+        colunas = [str(c) for c in df.columns]
+        return jsonify({"colunas": colunas, "linhas": linhas_limpas})
+    except Exception as e:
+        return jsonify({"status": "erro", "mensagem": str(e)}), 500
+
+@app.route("/api/servicos/importar-dinamico", methods=["POST"])
+def importar_dinamico_planilha():
+    data = request.json or {}
+    arquivo_temp_id = data.get("arquivo_temp_id")
+    aba = data.get("aba_selecionada")
+    linha_cabecalho = data.get("linha_cabecalho", 0)
+    mapeamento = data.get("mapeamento", {})
+    usuario_nome = data.get("usuario_nome", "Importador")
+    
+    filepath = os.path.join(UPLOAD_FOLDER, arquivo_temp_id)
+    if not os.path.exists(filepath):
+        return jsonify({"status": "erro", "mensagem": "Arquivo não encontrado no servidor"}), 404
+        
+    res = processar_importacao_dinamica(filepath, aba, linha_cabecalho, mapeamento, usuario_nome)
+    return jsonify(res)
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5001))

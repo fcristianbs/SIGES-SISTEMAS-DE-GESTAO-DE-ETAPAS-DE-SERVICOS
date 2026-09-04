@@ -138,7 +138,22 @@ class Store {
       carregando: false,
       paginaAtual: 1,
       itensPorPagina: 10,
-      servicos: []
+      servicos: [],
+      wizardImportacao: {
+        aberto: false,
+        passo: 1,
+        arquivoTempId: null,
+        abasDisponiveis: [],
+        abaSelecionada: "",
+        linhasPrevisualizacao: [],
+        colunasPlanilha: [],
+        linhaCabecalhoIndex: 0,
+        mapeamentoAtivo: {},
+        erro: null,
+        carregando: false,
+        sucesso: null,
+        faltamMapeamentos: []
+      }
     };
 
     this.listeners = [];
@@ -185,7 +200,7 @@ class Store {
     this.setState({ toast: msg });
     setTimeout(() => {
       if (this.state.toast === msg) this.setState({ toast: null });
-    }, 4200);
+    }, 4000);
   }
 
   getServicosFiltrados() {
@@ -389,6 +404,12 @@ function renderPageUI(pageId, state) {
         <span style="font-size:10px;font-weight:600;color:#5b6b65;border:1px solid #d7dedb;border-radius:6px;padding:3px 7px;text-transform:uppercase">Satélite GPM</span>
         <div style="flex:1"></div>
         <div style="display:flex;align-items:center;gap:12px">
+          ${['medicao', 'pendencias', 'gerencial'].includes(pageId) ? `
+            <button id="btn-abrir-importacao" class="btn-primary" style="padding:6px 12px;display:flex;align-items:center;gap:6px">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"></path></svg>
+              Importar Planilha
+            </button>
+          ` : ''}
           <div style="text-align:right">
             <div style="font-size:12px;font-weight:700">${user.nome}</div>
             <div style="font-size:10.5px;color:#71807a">Perfil: <b>${perfilAtivo.nome}</b></div>
@@ -398,6 +419,26 @@ function renderPageUI(pageId, state) {
       </div>
     `;
     header.querySelector('#btn-logout')?.addEventListener('click', () => authService.logout());
+    
+    header.querySelector('#btn-abrir-importacao')?.addEventListener('click', () => {
+      store.setState({
+        wizardImportacao: {
+          ...store.getState().wizardImportacao,
+          aberto: true,
+          passo: 1,
+          arquivoTempId: null,
+          abasDisponiveis: [],
+          abaSelecionada: "",
+          linhasPrevisualizacao: [],
+          colunasPlanilha: [],
+          linhaCabecalhoIndex: 0,
+          mapeamentoAtivo: {},
+          erro: null,
+          sucesso: null,
+          faltamMapeamentos: []
+        }
+      });
+    });
   }
 
   // FilterBar Dinâmica
@@ -458,6 +499,7 @@ function renderPageUI(pageId, state) {
 
   renderDrawer(state);
   renderToast(state.toast);
+  renderWizardImportacao(state);
 }
 
 // --- DASHBOARD GERENCIAL COM PAGINAÇÃO NO RADAR ---
@@ -1436,3 +1478,309 @@ function renderToast(msg) {
 document.addEventListener('DOMContentLoaded', () => {
   initPage();
 });
+
+// --- CDU-08: WIZARD DE IMPORTACAO DE PLANILHA ---
+function renderWizardImportacao(state) {
+  const wizard = state.wizardImportacao;
+  if (!wizard.aberto) {
+    const existing = document.getElementById('modal-wizard-importacao');
+    if (existing) existing.remove();
+    return;
+  }
+  
+  let modal = document.getElementById('modal-wizard-importacao');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-wizard-importacao';
+    modal.style.position = 'fixed';
+    modal.style.top = '0'; modal.style.left = '0'; modal.style.width = '100vw'; modal.style.height = '100vh';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    modal.style.display = 'flex'; modal.style.justifyContent = 'center'; modal.style.alignItems = 'center';
+    modal.style.zIndex = '9999';
+    document.body.appendChild(modal);
+  }
+  
+  const fechar = () => store.setState({ wizardImportacao: { ...wizard, aberto: false } });
+  
+  let conteudo = '';
+  if (wizard.passo === 1) {
+    conteudo = `
+      <div style="font-size:14px;color:#5b6b65;margin-bottom:12px">Passo 1: Selecione o arquivo XLSX/CSV</div>
+      <input type="file" id="input-arquivo-importacao" accept=".xlsx,.xls,.csv" style="margin-bottom:12px;width:100%">
+      ${wizard.abasDisponiveis.length > 0 ? `
+        <div style="margin-top:12px">
+          <label style="font-size:12px;font-weight:600">Selecione a aba da planilha:</label>
+          <select id="select-aba" class="text-input" style="width:100%;margin-top:4px">
+            <option value="">Selecione...</option>
+            ${wizard.abasDisponiveis.map(a => `<option value="${a}" ${wizard.abaSelecionada === a ? 'selected' : ''}>${a}</option>`).join('')}
+          </select>
+        </div>
+      ` : ''}
+    `;
+  } else if (wizard.passo === 2) {
+    conteudo = `
+      <div style="font-size:14px;color:#5b6b65;margin-bottom:12px">Passo 2: Qual a linha do cabeçalho?</div>
+      <div style="max-height:300px;overflow:auto;font-size:11px;border:1px solid #eef1f0;border-radius:6px">
+        <table style="width:100%;border-collapse:collapse;white-space:nowrap">
+          <thead>
+            <tr style="background:#f4f6f5;border-bottom:2px solid #eef1f0;text-align:left;color:#5b6b65;font-weight:600">
+              <th style="padding:6px;width:30px;text-align:center">#</th>
+              ${wizard.colunasPlanilha.map((col, i) => `<th style="padding:6px">Coluna ${i+1}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+          ${wizard.linhasPrevisualizacao.slice(0,5).map((row, idx) => `
+            <tr style="cursor:pointer;background:${wizard.linhaCabecalhoIndex === idx ? '#eaf2ee' : '#fff'};border-bottom:1px solid #eef1f0" class="row-cabecalho" data-idx="${idx}">
+              <td style="padding:6px;width:30px;text-align:center;font-weight:700;color:${wizard.linhaCabecalhoIndex === idx ? '#1c5f4b' : '#a1b0aa'}">${idx}</td>
+              ${wizard.colunasPlanilha.map(col => `<td style="padding:6px">${row[col] !== null ? row[col] : ''}</td>`).join('')}
+            </tr>
+          `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else if (wizard.passo === 3) {
+    // Opcoes do select de colunas do excel
+    const excelCols = wizard.colunasPlanilha.map(c => `<option value="${c}">${c}</option>`).join('');
+    
+    // Lista de mapeamentos ativos
+    const mapList = Object.entries(wizard.mapeamentoAtivo).map(([internalKey, excelCol]) => {
+      // checa se excelCol tem vazios na pre-visualizacao
+      let temBrancos = false;
+      if (excelCol) {
+         temBrancos = wizard.linhasPrevisualizacao.slice(wizard.linhaCabecalhoIndex+1).some(r => r[excelCol] === null || String(r[excelCol]).trim() === '');
+      }
+      
+      const internalDef = store.getState().wizardImportacao.colunasInternasDisponiveis?.find(c => c.id === internalKey) || {label: internalKey};
+      
+      return `
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;padding:8px;border:1px solid #eef1f0;border-radius:6px;background:#fcfdfd">
+          <div style="flex:1;font-size:12px;font-weight:600">${internalDef.label} ${internalKey==='num_servico'?'<span style="color:#b03a28">*</span>':''}</div>
+          <div style="flex:1">
+            <select class="text-input select-mapeamento" data-key="${internalKey}" style="width:100%;border-color:${temBrancos?'#d97706':'#d7dedb'}">
+              <option value="">Selecione a coluna...</option>
+              ${wizard.colunasPlanilha.map(c => `<option value="${c}" ${excelCol === c ? 'selected' : ''}>${c}</option>`).join('')}
+            </select>
+            ${temBrancos ? `<div style="font-size:10px;color:#d97706;margin-top:2px">⚠️ Contém células vazias (serão ignoradas)</div>` : ''}
+          </div>
+          <button class="btn-remover-mapeamento" data-key="${internalKey}" style="background:transparent;border:none;color:#b03a28;cursor:pointer;font-size:14px">×</button>
+        </div>
+      `;
+    }).join('');
+
+    // Colunas disponiveis para adicionar
+    const colunasParaAdicionar = (store.getState().wizardImportacao.colunasInternasDisponiveis || [
+      { id: "num_servico", label: "Número do Serviço (Chave Obrigatória)" },
+      { id: "cod_pep_obra", label: "Código PEP Obra" },
+      { id: "tdc", label: "Código TDC" },
+      { id: "cliente", label: "Cliente" },
+      { id: "supervisor", label: "Supervisor" },
+      { id: "coordenador", label: "Coordenador" },
+      { id: "equipe", label: "Equipe" },
+      { id: "data_primeira_validacao", label: "Data Validação" }
+    ]).filter(c => !wizard.mapeamentoAtivo.hasOwnProperty(c.id));
+    
+    // Atualiza estado interno de cols disponiveis se for a primeira vez
+    if (!store.getState().wizardImportacao.colunasInternasDisponiveis) {
+       setTimeout(() => store.setState({ wizardImportacao: { ...wizard, colunasInternasDisponiveis: [
+          { id: "num_servico", label: "Número do Serviço (Chave Obrigatória)" },
+          { id: "cod_pep_obra", label: "Código PEP Obra" },
+          { id: "tdc", label: "Código TDC" },
+          { id: "cliente", label: "Cliente" },
+          { id: "supervisor", label: "Supervisor" },
+          { id: "coordenador", label: "Coordenador" },
+          { id: "equipe", label: "Equipe" },
+          { id: "data_primeira_validacao", label: "Data Validação" }
+       ] } }), 0);
+    }
+
+    conteudo = `
+      <div style="font-size:14px;color:#5b6b65;margin-bottom:12px">Passo 3: Mapeamento de Colunas</div>
+      <div style="display:flex;gap:12px;margin-bottom:8px">
+        <div style="flex:1;font-size:11px;font-weight:700;color:#71807a;text-transform:uppercase">Informação do Sistema</div>
+        <div style="flex:1;font-size:11px;font-weight:700;color:#71807a;text-transform:uppercase">Coluna da Planilha</div>
+        <div style="width:20px"></div>
+      </div>
+      <div style="max-height:250px;overflow:auto;margin-bottom:12px">
+        ${mapList}
+      </div>
+      ${colunasParaAdicionar.length > 0 ? `
+        <div style="display:flex;align-items:center;gap:8px">
+          <select id="select-nova-coluna" class="text-input" style="flex:1">
+            <option value="">+ Selecione uma coluna para mapear...</option>
+            ${colunasParaAdicionar.map(c => `<option value="${c.id}">${c.label}</option>`).join('')}
+          </select>
+          <button id="btn-add-mapeamento" class="btn-secondary" style="padding:6px 12px">Adicionar</button>
+        </div>
+      ` : ''}
+    `;
+  }
+  
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:12px;width:700px;max-width:90vw;box-shadow:0 10px 25px rgba(0,0,0,0.15);overflow:hidden;display:flex;flex-direction:column">
+      <div style="padding:16px 24px;border-bottom:1px solid #eef1f0;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:18px;font-weight:700;color:#14483a">Importação de Planilha</div>
+        <button id="btn-fechar-wizard" style="background:none;border:none;font-size:20px;cursor:pointer;color:#a1b0aa">&times;</button>
+      </div>
+      
+      <div style="padding:24px;flex:1">
+        ${wizard.erro ? `<div style="background:#fdf2f0;color:#b03a28;padding:12px;border-radius:6px;margin-bottom:12px;font-size:12px">${wizard.erro}</div>` : ''}
+        ${wizard.sucesso ? `<div style="background:#eaf2ee;color:#1c5f4b;padding:12px;border-radius:6px;margin-bottom:12px;font-size:12px">${wizard.sucesso}</div>` : ''}
+        ${wizard.carregando && wizard.passo === 3 ? `
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:250px;gap:16px">
+             <div style="width:40px;height:40px;border:4px solid #eef1f0;border-top:4px solid #1c5f4b;border-radius:50%;animation:spin 1s linear infinite"></div>
+             <div style="font-weight:600;color:#14483a;font-size:16px">Sincronizando Banco de Dados...</div>
+             <div style="font-size:13px;color:#71807a;text-align:center">Comparando e atualizando serviços. Isso pode levar alguns<br>segundos dependendo do tamanho da sua planilha.<br><b>Por favor, não feche esta janela.</b></div>
+             <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+          </div>
+        ` : conteudo}
+      </div>
+      
+      <div style="padding:16px 24px;border-top:1px solid #eef1f0;background:#f7f9f8;display:flex;justify-content:space-between;align-items:center">
+        <button id="btn-voltar-wizard" style="background:none;border:none;color:#0f52ba;font-size:13px;font-weight:600;cursor:pointer;${wizard.passo === 1 ? 'visibility:hidden' : ''}">
+          &lsaquo; Voltar
+        </button>
+        <button id="btn-avancar-wizard" class="btn-primary" style="padding:8px 16px;opacity:${wizard.carregando ? 0.6 : 1}" ${wizard.carregando ? 'disabled' : ''}>
+          ${wizard.carregando ? 'Processando...' : (wizard.passo === 3 ? 'Confirmar e Sincronizar' : 'Continuar')}
+        </button>
+      </div>
+    </div>
+  `;
+  
+  // Eventos UI
+  modal.querySelector('#btn-fechar-wizard').addEventListener('click', fechar);
+  
+  modal.querySelector('#btn-voltar-wizard')?.addEventListener('click', () => {
+    store.setState({ wizardImportacao: { ...wizard, passo: wizard.passo - 1, erro: null } });
+  });
+  
+  // Eventos Passo 1
+  if (wizard.passo === 1) {
+    modal.querySelector('#input-arquivo-importacao')?.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      store.setState({ wizardImportacao: { ...wizard, carregando: true, erro: null } });
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const res = await fetch('/api/servicos/upload-temp', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (res.ok) {
+          store.setState({ wizardImportacao: { ...wizard, arquivoTempId: data.arquivo_temp_id, abasDisponiveis: data.abas, abaSelecionada: data.abas[0], carregando: false } });
+        } else throw new Error(data.mensagem);
+      } catch(err) {
+        store.setState({ wizardImportacao: { ...wizard, carregando: false, erro: err.message } });
+      }
+    });
+    
+    modal.querySelector('#select-aba')?.addEventListener('change', (e) => {
+      store.setState({ wizardImportacao: { ...wizard, abaSelecionada: e.target.value } });
+    });
+  }
+  
+  // Eventos Passo 2
+  if (wizard.passo === 2) {
+    modal.querySelectorAll('.row-cabecalho').forEach(r => {
+      r.addEventListener('click', () => {
+        store.setState({ wizardImportacao: { ...wizard, linhaCabecalhoIndex: Number(r.getAttribute('data-idx')) } });
+      });
+    });
+  }
+  
+  // Eventos Passo 3
+  if (wizard.passo === 3) {
+    modal.querySelector('#btn-add-mapeamento')?.addEventListener('click', () => {
+      const select = modal.querySelector('#select-nova-coluna');
+      const val = select.value;
+      if (val) {
+        store.setState({ wizardImportacao: { ...wizard, mapeamentoAtivo: { ...wizard.mapeamentoAtivo, [val]: "" } } });
+      }
+    });
+    
+    modal.querySelectorAll('.btn-remover-mapeamento').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.getAttribute('data-key');
+        const novos = {...wizard.mapeamentoAtivo};
+        delete novos[key];
+        store.setState({ wizardImportacao: { ...wizard, mapeamentoAtivo: novos } });
+      });
+    });
+    
+    modal.querySelectorAll('.select-mapeamento').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        const key = sel.getAttribute('data-key');
+        const val = e.target.value;
+        store.setState({ wizardImportacao: { ...wizard, mapeamentoAtivo: { ...wizard.mapeamentoAtivo, [key]: val } } });
+      });
+    });
+  }
+  
+  // Avancar / Confirmar
+  modal.querySelector('#btn-avancar-wizard')?.addEventListener('click', async () => {
+    if (wizard.carregando) return;
+    
+    if (wizard.passo === 1) {
+      if (!wizard.arquivoTempId || !wizard.abaSelecionada) {
+        return store.setState({ wizardImportacao: { ...wizard, erro: 'Selecione um arquivo e uma aba.' } });
+      }
+      store.setState({ wizardImportacao: { ...wizard, carregando: true, erro: null } });
+      try {
+        const res = await fetch('/api/servicos/pre-visualizar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ arquivo_temp_id: wizard.arquivoTempId, aba_selecionada: wizard.abaSelecionada })
+        });
+        const data = await res.json();
+        if (res.ok) {
+           store.setState({ wizardImportacao: { ...wizard, passo: 2, linhasPrevisualizacao: data.linhas, colunasPlanilha: data.colunas, carregando: false } });
+        } else throw new Error(data.mensagem);
+      } catch(err) {
+        store.setState({ wizardImportacao: { ...wizard, carregando: false, erro: err.message } });
+      }
+    } 
+    else if (wizard.passo === 2) {
+       // Extrai colunas da linha selecionada mantendo a ordem exata do backend
+       const row = wizard.linhasPrevisualizacao[wizard.linhaCabecalhoIndex];
+       const cols = wizard.colunasPlanilha.map(col => row[col]).filter(c => c && String(c).trim() !== '');
+       
+       // Pre-mapeamento automatico
+       let novoMap = { "num_servico": "" }; // Sempre coloca o obrigatorio
+       store.setState({ wizardImportacao: { ...wizard, passo: 3, colunasPlanilha: cols, mapeamentoAtivo: novoMap, erro: null } });
+    }
+    else if (wizard.passo === 3) {
+       // Verifica validacao de chave
+       if (!wizard.mapeamentoAtivo['num_servico']) {
+          return store.setState({ wizardImportacao: { ...wizard, erro: "O mapeamento do 'Número do Serviço' é obrigatório para sincronizar os dados." } });
+       }
+       
+       store.setState({ wizardImportacao: { ...wizard, carregando: true, erro: null } });
+       try {
+         const res = await fetch('/api/servicos/importar-dinamico', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({
+             arquivo_temp_id: wizard.arquivoTempId,
+             aba_selecionada: wizard.abaSelecionada,
+             linha_cabecalho: wizard.linhaCabecalhoIndex,
+             mapeamento: wizard.mapeamentoAtivo,
+             usuario_nome: 'Importador (Planilha)'
+           })
+         });
+         const data = await res.json();
+         if (res.ok && data.status === 'concluido') {
+            const sucessos = data.atualizados;
+            const falhas = data.nao_encontrados.length;
+            const msg = `Sincronização concluída! ${sucessos} registros atualizados. ${falhas > 0 ? '('+falhas+' inconsistências não localizadas)' : ''}`;
+            store.setState({ wizardImportacao: { ...wizard, sucesso: msg, carregando: false } });
+            // Timeout para fechar e recarregar
+            setTimeout(() => {
+              store.setState({ wizardImportacao: { ...wizard, aberto: false } });
+              window.location.reload(); // Recarrega os dados do banco
+            }, 3000);
+         } else throw new Error(data.mensagem);
+       } catch(err) {
+         store.setState({ wizardImportacao: { ...wizard, carregando: false, erro: err.message } });
+       }
+    }
+  });
+}
