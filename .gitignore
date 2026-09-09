@@ -156,3 +156,9 @@ Thumbs.db
 .env
 .env.*
 
+# Obsidian Workspace (Local)
+docs/.obsidian/
+.obsidian/
+
+# Temp Uploads
+backend/uploads/

@@ -1,5 +1,8 @@
+Esta versão substitui a [[CDU V2]] e introduz o perfil de [[Analista de Fechamento]] e [[Administrador Master]]."
+
+> **Contexto:** Parte do projeto SIGES. Veja a documentação central em [[memory]].
+
 # 📘 CDU-08: Importação Inteligente e Sincronização Dinâmica de Planilhas
-Este documento especifica tecnicamente os requisitos para a criação do sistema inteligente de importação e vínculo dinâmico de planilhas externas (Excel/CSV) com a base de dados centralizada do **SIGES**.
 
 ---
 

@@ -1,6 +1,6 @@
-# PROTOTIPO INICIAL DA ESTEIRA
+> **Contexto:** Parte do projeto SIGES. Veja a documentação central em [[memory]].
 
-## 1. Visão Geral e Arquitetura da Solução
+# PROTOTIPO INICIAL DA ESTEIRA
 
 O sistema foi concebido como uma grande esteira operacional baseada em uma estrutura de tabela dinâmica centralizada. Nem todas as colunas são exibidas automaticamente de forma global; a visualização é composta por uma **Estrutura Padrão de Colunas Básicas** somada às colunas específicas exigidas por cada **Tela Agregadora** e seus respectivos **Status (Etapas)**.
 

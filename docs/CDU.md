@@ -1,5 +1,7 @@
+Esta versão foi a primeira, dando origem ao a [[CDU V2]] e é onde esta os primeiros requisitos de [[mockup]] e [[funcionamento]]
+> **Contexto:** Parte do projeto SIGES. Veja a documentação central em [[memory]].
+
 # Especificação de Casos de Uso (CDU) - SIGES
-**Sistema de Gestão de Etapas de Serviços - Esteira GPM / Cosampa**
 
 ---
 
