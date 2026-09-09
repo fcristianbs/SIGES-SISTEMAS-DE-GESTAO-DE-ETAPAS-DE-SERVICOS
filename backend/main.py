@@ -234,7 +234,7 @@ def atualizar_permissoes(nome_perfil):
     return jsonify(PERFIS_DB[nome_perfil])
 
 # --- CDU-08: IMPORTACAO DE PLANILHAS ---
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
+UPLOAD_FOLDER = '/tmp'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route("/api/servicos/upload-temp", methods=["POST"])
