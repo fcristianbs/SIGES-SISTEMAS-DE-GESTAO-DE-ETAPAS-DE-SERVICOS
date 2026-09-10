@@ -1252,7 +1252,7 @@ function renderGenericScreen(pageId, svcs) {
   });
 }
 
-function renderGestaoAcessos() {
+async function renderGestaoAcessos() {
   const container = document.getElementById('gestao-acessos-container') || document.querySelector('.view-container');
   if (!container) return;
 
@@ -1261,6 +1261,28 @@ function renderGestaoAcessos() {
   const usuarios = authService.usuarios;
   const usuarioFocoId = store.getState().usuarioGestaoId || usuarios[0].id;
   const usuarioFoco = usuarios.find(u => u.id === usuarioFocoId) || usuarios[0];
+
+  let todosPerfis = store.getState().todosPerfisGestao;
+  if (!todosPerfis) {
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:#71807a">Carregando permissões...</div>';
+    try {
+      const res = await fetch('/api/perfis_tela/todos');
+      todosPerfis = await res.json();
+      store.setState({ todosPerfisGestao: todosPerfis });
+    } catch (e) {
+      todosPerfis = [];
+    }
+  }
+
+  let perfisUsuarioFoco = [];
+  if (mode === 'usuario' && usuarioFoco.perfil !== 'Master') {
+    try {
+      const res = await fetch(`/api/usuarios/${usuarioFoco.id}/perfis_tela`);
+      perfisUsuarioFoco = await res.json();
+    } catch (e) {
+      console.warn("Erro ao buscar perfis do usuario");
+    }
+  }
 
   container.innerHTML = `
     <div style="background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:20px">
@@ -1332,7 +1354,39 @@ function renderGestaoAcessos() {
               }).join('')}
             </div>
 
-            ${usuarioFoco.perfil !== 'Master' ? `<button id="btn-save-user-perms" class="btn-primary">Salvar Permissões do Usuário</button>` : ''}
+            ${usuarioFoco.perfil !== 'Master' ? `
+              <div style="margin-bottom:16px;position:relative;z-index:10">
+                <div style="font-size:12px;font-weight:700;margin-bottom:6px">Perfis de Tela Disponíveis:</div>
+                <div class="dropdown-perfis-gestao" style="position:relative;display:inline-block;width:100%">
+                  <button class="btn-secondary" style="width:100%;text-align:left;display:flex;justify-content:space-between;padding:8px 12px;background:#fff">
+                    <span>Selecionar Perfis de Tela...</span> <span style="font-size:10px">▼</span>
+                  </button>
+                  <div class="dropdown-content-perfis" style="display:none;position:absolute;top:100%;left:0;width:100%;background:#fff;border:1px solid var(--border-subtle);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:100;max-height:300px;overflow-y:auto;margin-top:4px;padding:8px">
+                    <div style="font-size:11px;font-weight:700;color:#71807a;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #eef1f0">PERFIS GLOBAIS / MASTER</div>
+                    ${todosPerfis.filter(p => p.tipo === 'global' || p.criado_por_id === 1).map(p => `
+                      <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:6px 4px;cursor:pointer">
+                        <input type="checkbox" class="cb-perfil-usuario" value="${p.id}" ${perfisUsuarioFoco.includes(p.id) ? 'checked' : ''}> 
+                        <span>${p.tipo==='global'?'🌍':'🔒'} ${p.nome}</span>
+                      </label>
+                    `).join('')}
+                    
+                    <div class="sub-dropdown-trigger" style="margin-top:8px;padding:8px;background:#f7f9f8;border-radius:4px;cursor:pointer;font-size:11.5px;font-weight:600;display:flex;justify-content:space-between;position:relative">
+                      <span>Perfis criados por usuários</span> <span style="color:#71807a">▸</span>
+                      <div class="sub-dropdown-content" style="display:none;position:absolute;top:0;left:100%;width:240px;background:#fff;border:1px solid var(--border-subtle);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:101;padding:8px;margin-left:4px">
+                        ${todosPerfis.filter(p => p.tipo !== 'global' && p.criado_por_id !== 1).map(p => `
+                          <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:6px 4px;cursor:pointer">
+                            <input type="checkbox" class="cb-perfil-usuario" value="${p.id}" ${perfisUsuarioFoco.includes(p.id) ? 'checked' : ''}> 
+                            <span>👤 ${p.nome}</span>
+                          </label>
+                        `).join('')}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button id="btn-save-user-perms" class="btn-primary">Salvar Permissões do Usuário</button>
+            ` : ''}
           </div>
         </div>
       `}
@@ -1360,13 +1414,54 @@ function renderGestaoAcessos() {
     });
   });
 
-  container.querySelector('#btn-save-user-perms')?.addEventListener('click', () => {
+  container.querySelector('#btn-save-user-perms')?.addEventListener('click', async () => {
     const cbs = container.querySelectorAll('.check-perm-user');
     const telas = [];
     cbs.forEach(cb => { if (cb.checked) telas.push(cb.getAttribute('data-tela')); });
     authService.atualizarPermissoesUsuario(usuarioFoco.id, telas);
-    store.notifyToast(`Permissões salvas para o usuário ${usuarioFoco.nome}!`);
+
+    // Salvar perfis de tela
+    const perfisCbs = container.querySelectorAll('.cb-perfil-usuario:checked');
+    const perfisSelecionados = Array.from(perfisCbs).map(cb => parseInt(cb.value));
+    
+    try {
+      const res = await fetch(`/api/usuarios/${usuarioFoco.id}/perfis_tela`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ perfis: perfisSelecionados })
+      });
+      if (res.ok) {
+        store.notifyToast(`Permissões e perfis salvos para o usuário ${usuarioFoco.nome}!`);
+      } else {
+        alert('Erro ao salvar perfis no banco.');
+      }
+    } catch (e) {
+      alert('Erro ao salvar perfis: ' + e);
+    }
   });
+
+  const ddBtn = container.querySelector('.dropdown-perfis-gestao button');
+  const ddContent = container.querySelector('.dropdown-content-perfis');
+  if (ddBtn && ddContent) {
+    ddBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      ddContent.style.display = ddContent.style.display === 'none' ? 'block' : 'none';
+    });
+    
+    const subTrigger = container.querySelector('.sub-dropdown-trigger');
+    const subContent = container.querySelector('.sub-dropdown-content');
+    if (subTrigger && subContent) {
+      subTrigger.addEventListener('mouseenter', () => subContent.style.display = 'block');
+      subTrigger.addEventListener('mouseleave', () => subContent.style.display = 'none');
+    }
+    
+    // Fechar dropdown ao clicar fora
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.dropdown-perfis-gestao')) {
+        ddContent.style.display = 'none';
+      }
+    });
+  }
 
   container.querySelector('#btn-add-user')?.addEventListener('click', () => {
     const nome = prompt('Nome do Operador:'); if (!nome) return;

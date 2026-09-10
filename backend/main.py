@@ -412,6 +412,63 @@ def atualizar_perfil_tela(perfil_id):
     finally:
         conn.close()
 
+@app.route("/api/perfis_tela/todos", methods=["GET"])
+def get_todos_perfis_tela():
+    # Apenas para a tela de Gestão de Acessos
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"erro": "Erro de conexão com o banco"}), 500
+        
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id, nome, tipo, criado_por_id FROM perfis_tela ORDER BY tipo ASC, id ASC")
+            rows = cursor.fetchall()
+            return jsonify(rows)
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/usuarios/<int:user_id>/perfis_tela", methods=["GET"])
+def get_perfis_usuario(user_id):
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"erro": "Erro de conexão com o banco"}), 500
+        
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT perfil_id FROM perfil_tela_usuario WHERE usuario_id = %s", (user_id,))
+            rows = cursor.fetchall()
+            return jsonify([r['perfil_id'] for r in rows])
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/usuarios/<int:user_id>/perfis_tela", methods=["PUT"])
+def atualizar_perfis_usuario(user_id):
+    data = request.json or {}
+    perfis = data.get("perfis", [])
+    
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"erro": "Erro de conexão com o banco"}), 500
+        
+    try:
+        with conn.cursor() as cursor:
+            # Apaga os antigos
+            cursor.execute("DELETE FROM perfil_tela_usuario WHERE usuario_id = %s", (user_id,))
+            # Insere os novos
+            for p_id in perfis:
+                cursor.execute("INSERT INTO perfil_tela_usuario (usuario_id, perfil_id) VALUES (%s, %s)", (user_id, p_id))
+        conn.commit()
+        return jsonify({"status": "sucesso"})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"erro": str(e)}), 500
+    finally:
+        conn.close()
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5001))
     print(f"Servidor Flask SIGES iniciado em http://localhost:{port}")
