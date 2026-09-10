@@ -21,6 +21,28 @@ const STATUS_DEFS = {
   15: { n: 'Faturado a Maior', a: 'Geral', m: 'fin', sla: null, color: '#0891b2', bg: '#cffafe', fg: '#155e75' }
 };
 
+const DICIONARIO_COLUNAS = {
+  sel: 'Checkbox (Seleção)',
+  st: 'Status',
+  svc_data: 'Serviço e Data',
+  id: 'Número do Serviço',
+  data: 'Data de Execução',
+  pep_tdc: 'PEP Obra / TDC',
+  cli_ct: 'Cliente / Contrato',
+  origem: 'Origem do Sistema',
+  v: 'Valor',
+  ret: 'Retorno / Pendências',
+  ob: 'Obra / Bairro / Localidade',
+  tp: 'Tipo de Serviço',
+  d: 'SLA (Dias)',
+  nota: 'Nota de Medição',
+  dep: 'Departamento',
+  supervisor: 'Supervisor',
+  equipe: 'Equipe',
+  obs: 'Observações'
+};
+
+
 const TELAS_DEF = [
   { id: 'gerencial', label: 'Gerencial', icon: '★', url: 'index.html' },
   { id: 'medicao', label: '01. Medição', icon: '01', url: 'medicao.html' },
@@ -139,6 +161,8 @@ class Store {
       paginaAtual: 1,
       itensPorPagina: 10,
       servicos: [],
+      perfisTela: [],
+      perfilTelaAtivoId: null,
       wizardImportacao: {
         aberto: false,
         passo: 1,
@@ -193,6 +217,26 @@ class Store {
     } catch (e) {
       console.warn('Erro ao buscar API /api/servicos:', e);
       this.setState({ carregando: false });
+    }
+  }
+
+  async carregarPerfisTelaAPI() {
+    try {
+      if (!authService.usuarioLogado) return;
+      const uid = authService.usuarioLogado.id;
+      const res = await fetch(`/api/perfis_tela?user_id=${uid}`);
+      if (res.ok) {
+        const perfis = await res.json();
+        const pAtivo = localStorage.getItem('siges_perfil_tela_ativo');
+        let ativoId = pAtivo ? parseInt(pAtivo) : (perfis.length > 0 ? perfis[0].id : null);
+        // Fallback caso o ID salvo não exista mais
+        if (!perfis.find(p => p.id === ativoId) && perfis.length > 0) {
+          ativoId = perfis[0].id;
+        }
+        this.setState({ perfisTela: perfis, perfilTelaAtivoId: ativoId });
+      }
+    } catch (e) {
+      console.warn('Erro ao buscar API /api/perfis_tela:', e);
     }
   }
 
@@ -270,7 +314,11 @@ function initPage() {
 
   localStorage.removeItem('siges_svcs');
   store.subscribe(state => renderPageUI(pageId, state));
-  store.carregarServicosAPI();
+  
+  // Carrega perfis primeiro, depois os serviços
+  store.carregarPerfisTelaAPI().then(() => {
+    store.carregarServicosAPI();
+  });
 }
 
 function bindLoginPage() {
@@ -328,6 +376,154 @@ function renderPaginador(totalItens, paginaAtual, itensPorPagina = 10) {
       </div>
     </div>
   `;
+}
+
+function renderToolbarPerfis(state) {
+  if (!state.perfisTela || state.perfisTela.length === 0) return '';
+  const ativo = state.perfisTela.find(p => p.id === state.perfilTelaAtivoId) || state.perfisTela[0];
+  
+  const colunasOptions = Object.keys(DICIONARIO_COLUNAS).map(k => {
+    const isChecked = ativo.colunas_visiveis.includes(k) ? 'checked' : '';
+    return `<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;padding:4px"><input type="checkbox" class="cb-coluna" value="${k}" ${isChecked}> ${DICIONARIO_COLUNAS[k]}</label>`;
+  }).join('');
+
+  return `
+    <div style="background:#fff;border-top:1px solid #eef1f0;padding:8px 14px;display:flex;align-items:center;gap:12px;font-size:12px">
+      <div style="font-weight:600;color:#5b6b65">Perfil de Tabela:</div>
+      <select id="sel-perfil-tela" style="padding:4px 8px;border:1px solid #d7dedb;border-radius:4px;font-size:11.5px">
+        ${state.perfisTela.map(p => `<option value="${p.id}" ${p.id === ativo.id ? 'selected' : ''}>${p.tipo === 'global' ? '🌍' : '🔒'} ${p.nome}</option>`).join('')}
+      </select>
+      
+      <div style="position:relative">
+        <button id="btn-toggle-colunas" style="padding:4px 10px;border:1px solid #d7dedb;background:#f7f9f8;border-radius:4px;cursor:pointer;font-size:11.5px">Configurar Colunas ⚙️</button>
+        <div id="dropdown-colunas" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid #d7dedb;border-radius:6px;padding:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:100;width:220px;max-height:300px;overflow-y:auto">
+          <div style="font-weight:600;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #eef1f0">Colunas Visíveis</div>
+          ${colunasOptions}
+          <div style="margin-top:8px;display:flex;gap:4px">
+             <button id="btn-save-perfil" class="btn-primary" style="flex:1;padding:4px;font-size:11px">Salvar Alterações</button>
+             <button id="btn-new-perfil" class="btn-secondary" style="flex:1;padding:4px;font-size:11px">Salvar como Novo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindToolbarEvents(container, state) {
+  const selPerfil = container.querySelector('#sel-perfil-tela');
+  if (selPerfil) {
+    selPerfil.addEventListener('change', (e) => {
+      const id = parseInt(e.target.value);
+      localStorage.setItem('siges_perfil_tela_ativo', id);
+      store.setState({ perfilTelaAtivoId: id });
+    });
+  }
+
+  const btnToggle = container.querySelector('#btn-toggle-colunas');
+  const dropColunas = container.querySelector('#dropdown-colunas');
+  if (btnToggle && dropColunas) {
+    btnToggle.addEventListener('click', () => {
+      dropColunas.style.display = dropColunas.style.display === 'none' ? 'block' : 'none';
+    });
+  }
+
+  container.querySelector('#btn-save-perfil')?.addEventListener('click', async () => {
+    const ativo = state.perfisTela.find(p => p.id === state.perfilTelaAtivoId);
+    if (!ativo) return;
+    
+    const checkboxes = Array.from(container.querySelectorAll('.cb-coluna:checked'));
+    const selecionadas = checkboxes.map(cb => cb.value);
+
+    try {
+      const res = await fetch(`/api/perfis_tela/${ativo.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ colunas_visiveis: selecionadas, user_id: authService.usuarioLogado.id })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        store.notifyToast('Perfil atualizado com sucesso!');
+        store.carregarPerfisTelaAPI();
+      } else {
+        alert(data.erro || 'Erro ao atualizar');
+      }
+    } catch (e) {
+      alert('Erro na requisição: ' + e);
+    }
+  });
+
+  container.querySelector('#btn-new-perfil')?.addEventListener('click', async () => {
+    const nome = prompt("Nome do novo perfil privado:");
+    if (!nome) return;
+
+    const checkboxes = Array.from(container.querySelectorAll('.cb-coluna:checked'));
+    const selecionadas = checkboxes.map(cb => cb.value);
+
+    try {
+      const res = await fetch(`/api/perfis_tela`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome: nome,
+          colunas_visiveis: selecionadas,
+          criado_por_id: authService.usuarioLogado.id,
+          tipo: 'privado'
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem('siges_perfil_tela_ativo', data.id);
+        store.notifyToast('Novo perfil criado!');
+        store.carregarPerfisTelaAPI();
+      }
+    } catch (e) {
+      alert('Erro na requisição: ' + e);
+    }
+  });
+}
+
+function renderDynamicTableHeaders(state) {
+  if (!state.perfisTela || state.perfisTela.length === 0) return '';
+  const ativo = state.perfisTela.find(p => p.id === state.perfilTelaAtivoId) || state.perfisTela[0];
+  
+  return ativo.colunas_visiveis.map(colKey => {
+    if (colKey === 'sel') {
+      const allSelected = state.servicos.length > 0 && state.selecionados.length === state.servicos.length;
+      return `<th style="padding:10px 12px;width:28px"><input type="checkbox" id="check-all-dynamic" ${allSelected ? 'checked' : ''}></th>`;
+    }
+    const label = DICIONARIO_COLUNAS[colKey] || colKey;
+    const align = (colKey === 'v') ? 'right' : 'left';
+    return `<th style="padding:10px;text-align:${align}">${label.toUpperCase()}</th>`;
+  }).join('');
+}
+
+function renderDynamicTableRow(s, state, isIrma = false) {
+  if (!state.perfisTela || state.perfisTela.length === 0) return '';
+  const ativo = state.perfisTela.find(p => p.id === state.perfilTelaAtivoId) || state.perfisTela[0];
+  const def = STATUS_DEFS[s.st] || STATUS_DEFS[1];
+  const isSel = state.selecionados.includes(s.id);
+  
+  return ativo.colunas_visiveis.map(colKey => {
+    if (colKey === 'sel') return `<td style="padding:10px 12px" onclick="event.stopPropagation()"><input type="checkbox" class="check-svc" data-id="${s.id}" ${isSel ? 'checked' : ''}></td>`;
+    if (colKey === 'st') return `<td style="padding:10px"><span class="badge-status" style="background:${def.bg};color:${def.fg}"><span class="badge-status-num">0${s.st}</span> ${def.n}</span></td>`;
+    if (colKey === 'svc_data') return `<td style="padding:10px"><b>${s.id}</b> ${isIrma ? `<span style="background:#e0f2fe;color:#0369a1;font-size:9.5px;padding:2px 5px;border-radius:4px;font-weight:700">SOB Irmã</span>` : ''}<br><small style="color:#71807a">${s.tp} · <b>${s.data || '—'}</b></small></td>`;
+    if (colKey === 'id') return `<td style="padding:10px"><b>${s.id}</b></td>`;
+    if (colKey === 'data') return `<td style="padding:10px">${s.data || '—'}</td>`;
+    if (colKey === 'pep_tdc') return `<td style="padding:10px;font-family:var(--font-mono);font-size:11px"><b>${s.pep||'—'}</b><br><small style="color:#71807a">${s.tdc||'—'}</small></td>`;
+    if (colKey === 'cli_ct') return `<td style="padding:10px;font-size:11px"><b>${s.cliente || '—'}</b><br><small style="font-weight:600;color:#5b6b65">${s.ct}</small></td>`;
+    if (colKey === 'origem') return `<td style="padding:10px;font-family:var(--font-mono);font-size:11px">${s.origem || 'PDA'}</td>`;
+    if (colKey === 'v') return `<td style="padding:10px;text-align:right;font-weight:600;font-family:var(--font-mono)">R$ ${s.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>`;
+    if (colKey === 'ret') return `<td style="padding:10px;font-size:11px;color:#71807a">${s.ret || '—'}</td>`;
+    if (colKey === 'ob') return `<td style="padding:10px"><b>${s.ob}</b></td>`;
+    if (colKey === 'tp') return `<td style="padding:10px">${s.tp}</td>`;
+    if (colKey === 'd') return `<td style="padding:10px;text-align:center">${s.d}</td>`;
+    if (colKey === 'nota') return `<td style="padding:10px">${s.nota}</td>`;
+    if (colKey === 'dep') return `<td style="padding:10px">${s.dep}</td>`;
+    if (colKey === 'supervisor') return `<td style="padding:10px">${s.supervisor || '—'}</td>`;
+    if (colKey === 'equipe') return `<td style="padding:10px">${s.equipe || '—'}</td>`;
+    if (colKey === 'obs') return `<td style="padding:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.obs_servico||''}">${s.obs_servico || '—'}</td>`;
+    return `<td style="padding:10px">${s[colKey] || '—'}</td>`;
+  }).join('');
 }
 
 function bindPaginadorEvents(container, totalItens) {
@@ -472,6 +668,10 @@ function renderPageUI(pageId, state) {
         </select>
         <input id="f-busca" class="text-input" value="${state.filtros.busca}" placeholder="Buscar SOB, PEP, TDC, obra..." style="width:200px">
       </div>
+      
+      <!-- Toolbar Perfis de Tela (CDU V4) -->
+      ${renderToolbarPerfis(state)}
+      
     `;
     filterBar.querySelector('#f-contrato')?.addEventListener('change', (e) => {
       store.setState({ filtros: { ...store.getState().filtros, contrato: e.target.value }, paginaAtual: 1 });
@@ -488,6 +688,8 @@ function renderPageUI(pageId, state) {
     filterBar.querySelector('#f-busca')?.addEventListener('input', (e) => {
       store.setState({ filtros: { ...store.getState().filtros, busca: e.target.value }, paginaAtual: 1 });
     });
+    
+    bindToolbarEvents(filterBar, state);
   }
 
   // Renderização da Tela
@@ -648,44 +850,15 @@ function renderMedicao(svcs, state) {
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead>
             <tr style="background:#f7f9f8;border-bottom:1px solid var(--border-subtle);text-align:left;font-size:10.5px;color:#71807a;font-weight:700">
-              <th style="padding:10px 12px;width:28px"><input type="checkbox" id="check-all-med" ${state.selecionados.length > 0 && state.selecionados.length === svcs.length ? 'checked' : ''}></th>
-              <th style="padding:10px">STATUS</th>
-              <th style="padding:10px">SERVIÇO E DATA</th>
-              <th style="padding:10px">PEP OBRA / TDC</th>
-              <th style="padding:10px">CLIENTE / CONTRATO</th>
-              <th style="padding:10px">ORIGEM</th>
-              <th style="padding:10px;text-align:right">VALOR</th>
-              <th style="padding:10px">RETORNO</th>
+              ${renderDynamicTableHeaders(state)}
             </tr>
           </thead>
           <tbody>
             ${pagItens.map((s, idx) => {
-              const def = STATUS_DEFS[s.st] || STATUS_DEFS[1];
-              const isSel = state.selecionados.includes(s.id);
               const isIrma = idx > 0 && pagItens[idx-1].ct === s.ct;
               return `
-                <tr class="row-svc" data-id="${s.id}" style="border-bottom:1px solid #eef1f0;background:${isSel ? '#eaf2ee' : '#fff'};cursor:pointer">
-                  <td style="padding:10px 12px" onclick="event.stopPropagation()">
-                    <input type="checkbox" class="check-svc" data-id="${s.id}" ${isSel ? 'checked' : ''}>
-                  </td>
-                  <td style="padding:10px">
-                    <span class="badge-status" style="background:${def.bg};color:${def.fg}">
-                      <span class="badge-status-num">0${s.st}</span> ${def.n}
-                    </span>
-                  </td>
-                  <td style="padding:10px">
-                    <b>${s.id}</b> ${isIrma ? `<span style="background:#e0f2fe;color:#0369a1;font-size:9.5px;padding:2px 5px;border-radius:4px;font-weight:700">SOB Irmã</span>` : ''}<br>
-                    <small style="color:#71807a">${s.tp} · <b>${s.data || '—'}</b></small>
-                  </td>
-                  <td style="padding:10px;font-family:var(--font-mono);font-size:11px">
-                    <b>${s.pep||'—'}</b><br><small style="color:#71807a">${s.tdc||'—'}</small>
-                  </td>
-                  <td style="padding:10px;font-size:11px">
-                    <b>${s.cliente || '—'}</b><br><small style="font-weight:600;color:#5b6b65">${s.ct}</small>
-                  </td>
-                  <td style="padding:10px;font-family:var(--font-mono);font-size:11px">${s.origem || 'PDA'}</td>
-                  <td style="padding:10px;text-align:right;font-weight:600;font-family:var(--font-mono)">R$ ${s.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                  <td style="padding:10px;font-size:11px;color:#71807a">${s.ret || '—'}</td>
+                <tr class="row-svc" data-id="${s.id}" style="border-bottom:1px solid #eef1f0;background:${state.selecionados.includes(s.id) ? '#eaf2ee' : '#fff'};cursor:pointer">
+                  ${renderDynamicTableRow(s, state, isIrma)}
                 </tr>
               `;
             }).join('')}
@@ -877,34 +1050,16 @@ function renderPendencias(svcs, state) {
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead>
             <tr style="background:#f7f9f8;border-bottom:1px solid var(--border-subtle);text-align:left;font-size:10.5px;color:#71807a;font-weight:700">
-              <th style="padding:10px">STATUS</th>
-              <th style="padding:10px">SERVIÇO</th>
-              <th style="padding:10px">RETORNO / PENDÊNCIAS</th>
-              <th style="padding:10px">DATA</th>
-              <th style="padding:10px;text-align:right">VALOR</th>
+              ${renderDynamicTableHeaders(state)}
             </tr>
           </thead>
           <tbody>
-            ${pagItens.map(s => {
-              const def = STATUS_DEFS[s.st] || STATUS_DEFS[2];
+            ${pagItens.map((s, idx) => {
               const isFoco = foco && foco.id === s.id;
+              const isIrma = idx > 0 && pagItens[idx-1].ct === s.ct;
               return `
                 <tr class="row-foco" data-id="${s.id}" style="border-bottom:1px solid #eef1f0;background:${isFoco ? '#eaf2ee' : '#fff'};cursor:pointer">
-                  <td style="padding:10px">
-                    <span class="badge-status" style="background:${def.bg};color:${def.fg}">
-                      <span class="badge-status-num">0${s.st}</span> ${def.n}
-                    </span>
-                  </td>
-                  <td style="padding:10px">
-                    <b>${s.id}</b><br><small style="color:#71807a">${s.ob} · ${s.tp}</small>
-                  </td>
-                  <td style="padding:10px;font-size:11.5px">
-                    <span style="padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#fee2e2;color:#991b1b">
-                      ✕ ${s.ret || 'Retorno de Campo'}
-                    </span>
-                  </td>
-                  <td style="padding:10px;font-family:var(--font-mono)">${s.data || '—'}</td>
-                  <td style="padding:10px;text-align:right;font-weight:600;font-family:var(--font-mono)">R$ ${s.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                  ${renderDynamicTableRow(s, state, isIrma)}
                 </tr>
               `;
             }).join('')}

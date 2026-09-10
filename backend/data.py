@@ -31,10 +31,10 @@ PERFIS_DB = {
 }
 
 USUARIOS_DB = [
-    {"id": 1, "nome": "Administrador Master", "email": "admin@cosampa.com.br", "perfil": "Master", "telas_custom": None},
-    {"id": 2, "nome": "Carlos Fechamento", "email": "carlos@cosampa.com.br", "perfil": "Fechamento", "telas_custom": None},
-    {"id": 3, "nome": "Fernanda Operação", "email": "fernanda@cosampa.com.br", "perfil": "Operação", "telas_custom": None},
-    {"id": 4, "nome": "Roberto Faturamento", "email": "roberto@cosampa.com.br", "perfil": "Faturamento", "telas_custom": None}
+    {"id": 1, "nome": "Administrador Master", "email": "admin@cosampa.com.br", "perfil": "Master", "telas_custom": None, "criar_perfis_tela": True},
+    {"id": 2, "nome": "Carlos Fechamento", "email": "carlos@cosampa.com.br", "perfil": "Fechamento", "telas_custom": None, "criar_perfis_tela": False},
+    {"id": 3, "nome": "Fernanda Operação", "email": "fernanda@cosampa.com.br", "perfil": "Operação", "telas_custom": None, "criar_perfis_tela": False},
+    {"id": 4, "nome": "Roberto Faturamento", "email": "roberto@cosampa.com.br", "perfil": "Faturamento", "telas_custom": None, "criar_perfis_tela": False}
 ]
 
 # Amostragem de serviços fiel às imagens do protótipo

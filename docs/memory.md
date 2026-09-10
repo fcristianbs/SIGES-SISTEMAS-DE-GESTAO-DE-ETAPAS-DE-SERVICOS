@@ -12,6 +12,7 @@ Navegue pela evolução da nossa engenharia de software através das documentaç
 - [[CDU]]: Documentação base inicial. Onde definimos a estrutura raiz do fluxo de Medição, Cockpit, Status e regras universais.
 - [[CDU V2]]: Evolução dos requisitos. Introduziu regras complexas como a aba exclusiva de Pendências Distribuidora, trava contra avanços indevidos e tratativas pontuais.
 - [[CDUV3]]: Especificação técnica atualizada do poderoso Importador Inteligente (CDU-08), com foco em segurança, painel UI dinâmico, ignorar células em branco e o Motor Global de Auditoria. Define os perfis: [[Analista de Fechamento]] e [[Administrador Master]].
+- [[CDUV4(PERFIS DE TELA)]]: Especificação Técnica para Perfis de Tela e Modo de Edição. Introduz o motor de renderização dinâmico de colunas e a gestão de perfis globais e privados por usuário, implementado com as tabelas `perfis_tela` e `perfil_tela_usuario`.
 
 ## 🤖 Regras para o Antigravity (Meu Comportamento)
 1. Antes de gerar código ou propor soluções para importação, consulte sempre a especificação atual em [[CDUV3]].

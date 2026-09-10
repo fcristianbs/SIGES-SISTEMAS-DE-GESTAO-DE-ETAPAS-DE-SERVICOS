@@ -15,9 +15,9 @@ except ImportError:
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from data import PERFIS_DB, USUARIOS_DB, SERVICOS_DB
-from db import buscar_servicos_db, tramitar_servico_db, buscar_logs_auditoria, registrar_log_auditoria, atualizar_dados_servico_db, processar_importacao_dinamica
+from db import get_db_connection, buscar_servicos_db, tramitar_servico_db, buscar_logs_auditoria, registrar_log_auditoria, atualizar_dados_servico_db, processar_importacao_dinamica
 from etl_sync import executar_sincronizacao_etl
-
+import json
 app = Flask(__name__, static_folder="../frontend")
 CORS(app)
 
@@ -307,6 +307,110 @@ def importar_dinamico_planilha():
         
     res = processar_importacao_dinamica(filepath, aba, linha_cabecalho, mapeamento, usuario_nome)
     return jsonify(res)
+
+# --- CDU-04: PERFIS DE TELA E MODO DE EDIÇÃO ---
+
+@app.route("/api/perfis_tela", methods=["GET"])
+def get_perfis_tela():
+    user_id = int(request.args.get("user_id", 0))
+    user = next((u for u in USUARIOS_DB if u["id"] == user_id), None)
+    
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"erro": "Erro de conexão com o banco"}), 500
+        
+    try:
+        with conn.cursor() as cursor:
+            if user and user.get("criar_perfis_tela"):
+                # Master vê tudo
+                cursor.execute("SELECT * FROM perfis_tela ORDER BY tipo ASC, id ASC")
+            else:
+                # Comum vê Globais, Seus Privados e Compartilhados com Ele
+                sql = """
+                    SELECT p.* FROM perfis_tela p
+                    LEFT JOIN perfil_tela_usuario pu ON p.id = pu.perfil_id AND pu.usuario_id = %s
+                    WHERE p.tipo = 'global' 
+                       OR p.criado_por_id = %s 
+                       OR pu.id IS NOT NULL
+                    GROUP BY p.id
+                    ORDER BY p.tipo ASC, p.id ASC
+                """
+                cursor.execute(sql, (user_id, user_id))
+            
+            rows = cursor.fetchall()
+            for r in rows:
+                if isinstance(r['colunas_visiveis'], str):
+                    r['colunas_visiveis'] = json.loads(r['colunas_visiveis'])
+            return jsonify(rows)
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/perfis_tela", methods=["POST"])
+def criar_perfil_tela():
+    data = request.json or {}
+    user_id = int(data.get("criado_por_id", 0))
+    user = next((u for u in USUARIOS_DB if u["id"] == user_id), None)
+    
+    if not user:
+        return jsonify({"erro": "Usuário não autenticado ou inválido"}), 401
+
+    nome = data.get("nome", "Novo Perfil")
+    colunas_visiveis = data.get("colunas_visiveis", [])
+    tipo_solicitado = data.get("tipo", "privado")
+    tipo = tipo_solicitado if user.get("criar_perfis_tela") else "privado"
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"erro": "Erro banco"}), 500
+
+    try:
+        with conn.cursor() as cursor:
+            sql = "INSERT INTO perfis_tela (nome, colunas_visiveis, criado_por_id, tipo) VALUES (%s, %s, %s, %s)"
+            cursor.execute(sql, (nome, json.dumps(colunas_visiveis), user_id, tipo))
+            novo_id = cursor.lastrowid
+        conn.commit()
+        return jsonify({"id": novo_id, "nome": nome, "colunas_visiveis": colunas_visiveis, "tipo": tipo}), 201
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"erro": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/perfis_tela/<int:perfil_id>", methods=["PUT"])
+def atualizar_perfil_tela(perfil_id):
+    data = request.json or {}
+    user_id = int(data.get("user_id", 0))
+    user = next((u for u in USUARIOS_DB if u["id"] == user_id), None)
+    
+    if not user:
+        return jsonify({"erro": "Não autorizado"}), 401
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"erro": "Erro banco"}), 500
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM perfis_tela WHERE id = %s", (perfil_id,))
+            perfil = cursor.fetchone()
+            if not perfil:
+                return jsonify({"erro": "Perfil não encontrado"}), 404
+            
+            if perfil['tipo'] == 'global' and not user.get("criar_perfis_tela"):
+                return jsonify({"erro": "Você não tem permissão para editar um perfil global."}), 403
+
+            colunas_visiveis = data.get("colunas_visiveis", [])
+            sql = "UPDATE perfis_tela SET colunas_visiveis = %s WHERE id = %s"
+            cursor.execute(sql, (json.dumps(colunas_visiveis), perfil_id))
+        conn.commit()
+        return jsonify({"status": "sucesso"}), 200
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"erro": str(e)}), 500
+    finally:
+        conn.close()
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5001))
