@@ -1370,15 +1370,20 @@ async function renderGestaoAcessos() {
                       </label>
                     `).join('')}
                     
-                    <div class="sub-dropdown-trigger" style="margin-top:8px;padding:8px;background:#f7f9f8;border-radius:4px;cursor:pointer;font-size:11.5px;font-weight:600;display:flex;justify-content:space-between;position:relative">
-                      <span>Perfis criados por usuários</span> <span style="color:#71807a">▸</span>
-                      <div class="sub-dropdown-content" style="display:none;position:absolute;top:0;left:100%;width:240px;background:#fff;border:1px solid var(--border-subtle);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:101;padding:8px;margin-left:4px">
-                        ${todosPerfis.filter(p => p.tipo !== 'global' && p.criado_por_id !== 1).map(p => `
-                          <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:6px 4px;cursor:pointer">
-                            <input type="checkbox" class="cb-perfil-usuario" value="${p.id}" ${perfisUsuarioFoco.includes(p.id) ? 'checked' : ''}> 
-                            <span>👤 ${p.nome}</span>
-                          </label>
-                        `).join('')}
+                    <div class="sub-dropdown-trigger" style="margin-top:8px;padding:8px;background:#f7f9f8;border-radius:4px;cursor:pointer;font-size:11.5px;font-weight:600;display:flex;flex-direction:column;position:relative">
+                      <div style="display:flex;justify-content:space-between;align-items:center">
+                        <span>Perfis criados por usuários</span> <span style="color:#71807a">▾</span>
+                      </div>
+                      <div class="sub-dropdown-content" style="display:none;margin-top:8px;border-top:1px solid #eef1f0;padding-top:6px;display:flex;flex-direction:column;gap:4px">
+                        ${todosPerfis.filter(p => p.tipo !== 'global' && Number(p.criado_por_id) !== 1).length > 0 
+                          ? todosPerfis.filter(p => p.tipo !== 'global' && Number(p.criado_por_id) !== 1).map(p => `
+                            <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px;cursor:pointer;font-weight:400">
+                              <input type="checkbox" class="cb-perfil-usuario" value="${p.id}" ${perfisUsuarioFoco.includes(p.id) ? 'checked' : ''}> 
+                              <span>👤 ${p.nome}</span>
+                            </label>
+                          `).join('')
+                          : '<div style="font-size:11px;color:#a0aba6;padding:4px;font-weight:400">Nenhum perfil criado por usuários.</div>'
+                        }
                       </div>
                     </div>
                   </div>
@@ -1451,8 +1456,12 @@ async function renderGestaoAcessos() {
     const subTrigger = container.querySelector('.sub-dropdown-trigger');
     const subContent = container.querySelector('.sub-dropdown-content');
     if (subTrigger && subContent) {
-      subTrigger.addEventListener('mouseenter', () => subContent.style.display = 'block');
-      subTrigger.addEventListener('mouseleave', () => subContent.style.display = 'none');
+      // Toggle accordion on click, but ignore clicks on the content itself
+      subTrigger.addEventListener('click', (e) => {
+        if (e.target.closest('.sub-dropdown-content')) return; // let checkboxes work
+        e.stopPropagation();
+        subContent.style.display = subContent.style.display === 'none' ? 'flex' : 'none';
+      });
     }
     
     // Fechar dropdown ao clicar fora
