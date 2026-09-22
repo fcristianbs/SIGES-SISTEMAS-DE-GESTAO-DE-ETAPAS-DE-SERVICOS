@@ -15,7 +15,7 @@ except ImportError:
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from data import PERFIS_DB, USUARIOS_DB, SERVICOS_DB
-from db import get_db_connection, buscar_servicos_db, tramitar_servico_db, buscar_logs_auditoria, registrar_log_auditoria, atualizar_dados_servico_db, processar_importacao_dinamica
+from db import get_db_connection, buscar_servicos_db, obter_opcoes_filtro_db, tramitar_servico_db, buscar_logs_auditoria, registrar_log_auditoria, atualizar_dados_servico_db, processar_importacao_dinamica, inserir_comentario_db, buscar_comentarios_db, obter_parametros_pendencias_db
 from etl_sync import executar_sincronizacao_etl
 import json
 app = Flask(__name__, static_folder="../frontend")
@@ -78,12 +78,27 @@ def listar_servicos():
     tipo = request.args.get("tipo", "todos")
     status_id = request.args.get("status_id", "todos")
     supervisor = request.args.get("supervisor", "todos")
+    coordenador = request.args.get("coordenador", "todos")
     busca = request.args.get("busca", "")
+    periodo = request.args.get("periodo", "30d")
+    limit = int(request.args.get("limit", 100))
+    skip = int(request.args.get("skip", 0))
+    
+    status_in = request.args.get("status_in")
 
-    dados_reais = buscar_servicos_db(contrato=contrato, tipo=tipo, status_id=status_id, supervisor=supervisor, busca=busca)
-    resultado = dados_reais if dados_reais is not None else []
-
-    return jsonify(resultado)
+    dados_reais = buscar_servicos_db(
+        contrato=contrato, 
+        tipo=tipo, 
+        status_id=status_id, 
+        supervisor=supervisor,
+        coordenador=coordenador,
+        busca=busca, 
+        periodo=periodo, 
+        limit=limit, 
+        skip=skip,
+        status_in=status_in
+    )
+    return jsonify(dados_reais)
 
 @app.route("/api/servicos/<servico_id>/tramitar", methods=["POST"])
 def tramitar_servico(servico_id):
@@ -118,6 +133,57 @@ def atualizar_servico(servico_id):
 def obter_logs_auditoria(servico_id):
     logs = buscar_logs_auditoria(servico_id)
     return jsonify(logs)
+
+@app.route("/api/servicos/<servico_id>/comentarios", methods=["GET"])
+def obter_comentarios(servico_id):
+    comentarios = buscar_comentarios_db(servico_id)
+    return jsonify(comentarios)
+
+@app.route("/api/servicos/<servico_id>/comentarios", methods=["POST"])
+def adicionar_comentario(servico_id):
+    data = request.json or {}
+    usuario_id = data.get("usuario_id")
+    usuario_nome = data.get("usuario_nome")
+    texto = data.get("texto", "").strip()
+    
+    if not usuario_id or not texto:
+        return jsonify({"status": "erro", "mensagem": "Usuário e texto são obrigatórios."}), 400
+        
+    res = inserir_comentario_db(servico_id, usuario_id, usuario_nome, texto)
+    if res["status"] == "sucesso":
+        return jsonify(res), 201
+    return jsonify(res), 500
+
+@app.route("/api/parametros/pendencias", methods=["GET"])
+def obter_parametros_pendencias():
+    return jsonify(obter_parametros_pendencias_db())
+
+@app.route("/api/servicos/lote/tramitar", methods=["POST"])
+def tramitar_lote():
+    data = request.json or {}
+    servico_ids = data.get("servico_ids", [])
+    novo_status = data.get("novo_status_id")
+    dados_extras = data.get("dados_extras", {})
+    usuario_nome = data.get("usuario_nome", "Analista")
+    usuario_email = data.get("usuario_email", "analista@cosampa.com.br")
+
+    if not servico_ids or not novo_status:
+        return jsonify({"status": "erro", "mensagem": "servico_ids e novo_status_id são obrigatórios"}), 400
+
+    sucessos = 0
+    erros = []
+    for sid in servico_ids:
+        if dados_extras:
+            atualizar_dados_servico_db(sid, dados_extras, usuario_nome, usuario_email)
+        res = tramitar_servico_db(sid, int(novo_status), usuario_nome, usuario_email)
+        if res.get("status") == "sucesso":
+            sucessos += 1
+        else:
+            erros.append({"id": sid, "erro": res.get("mensagem")})
+
+    if sucessos > 0:
+        return jsonify({"status": "sucesso", "mensagem": f"{sucessos} serviços tramitados com sucesso", "erros": erros})
+    return jsonify({"status": "erro", "mensagem": "Falha ao tramitar lote", "erros": erros}), 400
 
 @app.route("/api/servicos/lote/enviar-validacao", methods=["POST"])
 def enviar_lote_validacao():
@@ -178,22 +244,33 @@ def importar_rejeicoes_lote():
 
 @app.route("/api/supervisores", methods=["GET"])
 def listar_supervisores():
-    dados = buscar_servicos_db(limit=500)
+    res = buscar_servicos_db(limit=1000)
+    dados = res.get("data", [])
     sups = sorted(list(set(s.get("supervisor") for s in dados if s.get("supervisor"))))
     return jsonify(sups)
 
 @app.route("/api/dashboard/kpis", methods=["GET"])
 def kpis():
-    dados_reais = buscar_servicos_db(limit=500)
-    base = dados_reais if dados_reais is not None else []
+    res = buscar_servicos_db(limit=500)
+    base = res.get("data", [])
     ativos = [s for s in base if s.get("st", 1) not in (13, 14, 15)]
     valor_total = sum(s.get("v", 0) for s in ativos)
     estourados = [s for s in ativos if s.get("d", 0) > 5]
+    
+    status_counts = {}
+    for s in base:
+        st = s.get("st", 1)
+        status_counts[st] = status_counts.get(st, 0) + 1
+        
+    opcoes_filtro = obter_opcoes_filtro_db()
+        
     return jsonify({
         "servicos_ativos": len(ativos),
         "valor_esteira": valor_total,
         "sla_estourado_count": len(estourados),
-        "total_geral": len(base)
+        "total_geral": res.get("total", 0),
+        "status_counts": status_counts,
+        "opcoes_filtro": opcoes_filtro
     })
 
 @app.route("/api/usuarios", methods=["GET", "POST"])

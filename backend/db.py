@@ -83,18 +83,90 @@ def buscar_logs_auditoria(servico_id):
     finally:
         conn.close()
 
-def buscar_servicos_db(contrato="todos", tipo="todos", status_id="todos", supervisor="todos", busca="", periodo="30d", limit=500):
+def obter_opcoes_filtro_db():
+    """ Retorna listas de valores únicos para preencher os Selects de filtro no Frontend. """
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT DISTINCT contrato FROM servicos WHERE contrato IS NOT NULL AND contrato != ''")
+            contratos = [r['contrato'] for r in cursor.fetchall()]
+            
+            cursor.execute("SELECT DISTINCT tipo_servico FROM servicos WHERE tipo_servico IS NOT NULL AND tipo_servico != ''")
+            tipos = [r['tipo_servico'] for r in cursor.fetchall()]
+            
+            cursor.execute("SELECT DISTINCT supervisor FROM servicos WHERE supervisor IS NOT NULL AND supervisor != ''")
+            supervisores = [r['supervisor'] for r in cursor.fetchall()]
+            
+            cursor.execute("SELECT DISTINCT coordenador FROM servicos WHERE coordenador IS NOT NULL AND coordenador != ''")
+            coordenadores = [r['coordenador'] for r in cursor.fetchall()]
+            
+            return {
+                "contratos": sorted(contratos),
+                "tipos": sorted(tipos),
+                "supervisores": sorted(supervisores),
+                "coordenadores": sorted(coordenadores)
+            }
+    finally:
+        conn.close()
+
+def buscar_servicos_db(contrato="todos", tipo="todos", status_id="todos", supervisor="todos", coordenador="todos", busca="", periodo="30d", limit=100, skip=0, status_in=None):
     """
     Busca os dados EXCLUSIVAMENTE do banco secundário (siges_app.servicos)
-    retornando todas as 36 colunas do Dicionário de Dados do CDU.md.
+    retornando todas as colunas do Dicionário de Dados do CDU.md,
+    com paginação (limit/skip) e contagem total.
     """
     conn = get_db_connection()
     if not conn:
-        return []
+        return {"data": [], "total": 0}
 
     try:
         with conn.cursor() as cursor:
-            sql = """
+            # Construir query base
+            base_sql = "FROM servicos WHERE 1=1"
+            params = []
+
+            if contrato != "todos":
+                base_sql += " AND contrato = %s"
+                params.append(contrato)
+
+            if tipo != "todos":
+                base_sql += " AND tipo_servico = %s"
+                params.append(tipo)
+
+            if status_id != "todos":
+                try:
+                    base_sql += " AND status_id = %s"
+                    params.append(int(status_id))
+                except ValueError:
+                    pass
+            elif status_in:
+                # Expects a list of ints or a comma-separated string
+                if isinstance(status_in, str):
+                    status_in = [int(x.strip()) for x in status_in.split(',') if x.strip().isdigit()]
+                if status_in:
+                    placeholders = ','.join(['%s'] * len(status_in))
+                    base_sql += f" AND status_id IN ({placeholders})"
+                    params.extend(status_in)
+
+            if supervisor != "todos":
+                base_sql += " AND supervisor = %s"
+                params.append(supervisor)
+                
+            if coordenador != "todos":
+                base_sql += " AND coordenador = %s"
+                params.append(coordenador)
+
+            if busca:
+                base_sql += " AND (id LIKE %s OR num_servico LIKE %s OR nome_obra LIKE %s OR contrato LIKE %s OR bairro LIKE %s OR localidade LIKE %s OR supervisor LIKE %s OR cod_pep_obra LIKE %s OR tdc LIKE %s)"
+                term = f"%{busca}%"
+                params.extend([term]*9)
+
+            # Contagem Total
+            cursor.execute("SELECT COUNT(id) as total " + base_sql, params)
+            total_count = cursor.fetchone()['total']
+
+            # Busca paginada
+            sql = f"""
                 SELECT 
                     id, num_servico, contrato, nome_obra, bairro, localidade, tipo_servico,
                     status_id, valor, sla_dias, nota_medicao, data_execucao, centro_servico,
@@ -104,39 +176,11 @@ def buscar_servicos_db(contrato="todos", tipo="todos", status_id="todos", superv
                     tipo_equipe, tipo_obra, sistema_faturamento, mes_medicao_inicial,
                     data_primeira_validacao, data_programacao,
                     valor_pago_cliente, mes_reapresentacao, divergencia_conciliacao
-                FROM servicos
-                WHERE 1=1
+                {base_sql}
+                ORDER BY id DESC LIMIT %s OFFSET %s
             """
-            params = []
-
-            if contrato != "todos":
-                sql += " AND contrato = %s"
-                params.append(contrato)
-
-            if tipo != "todos":
-                sql += " AND tipo_servico = %s"
-                params.append(tipo)
-
-            if status_id != "todos":
-                try:
-                    sql += " AND status_id = %s"
-                    params.append(int(status_id))
-                except ValueError:
-                    pass
-
-            if supervisor != "todos":
-                sql += " AND supervisor = %s"
-                params.append(supervisor)
-
-            if busca:
-                sql += " AND (id LIKE %s OR num_servico LIKE %s OR nome_obra LIKE %s OR contrato LIKE %s OR bairro LIKE %s OR localidade LIKE %s OR supervisor LIKE %s OR cod_pep_obra LIKE %s OR tdc LIKE %s)"
-                b_str = f"%{busca}%"
-                params.extend([b_str, b_str, b_str, b_str, b_str, b_str, b_str, b_str, b_str])
-
-            sql += " ORDER BY id DESC LIMIT %s"
-            params.append(limit)
-
-            cursor.execute(sql, params)
+            params_busca = list(params) + [limit, skip]
+            cursor.execute(sql, params_busca)
             rows = cursor.fetchall()
 
             resultado = []
@@ -215,10 +259,10 @@ def buscar_servicos_db(contrato="todos", tipo="todos", status_id="todos", superv
                     "divergencia_conciliacao": r.get("divergencia_conciliacao") or ""
                 })
 
-            return resultado
+            return {"data": resultado, "total": total_count}
     except Exception as e:
         print(f"[Aviso DB] Erro ao consultar banco secundário 'siges_app': {e}")
-        return []
+        return {"data": [], "total": 0}
     finally:
         conn.close()
 
@@ -456,3 +500,61 @@ def processar_importacao_dinamica(temp_file_path, aba, header_idx, mapeamento_de
         conn.close()
         
     return {"status": "concluido", "atualizados": sucessos, "nao_encontrados": falhas}
+
+def inserir_comentario_db(servico_id, usuario_id, usuario_nome, texto):
+    conn = get_db_connection()
+    if not conn:
+        return {"status": "erro", "mensagem": "Falha na conexão"}
+    try:
+        with conn.cursor() as cursor:
+            sql = """
+                INSERT INTO comentarios_internos (servico_id, usuario_id, usuario_nome, texto)
+                VALUES (%s, %s, %s, %s)
+            """
+            cursor.execute(sql, (servico_id, usuario_id, usuario_nome, texto))
+            novo_id = cursor.lastrowid
+            
+            cursor.execute("SELECT * FROM comentarios_internos WHERE id = %s", (novo_id,))
+            comentario = cursor.fetchone()
+        conn.commit()
+        return {"status": "sucesso", "data": comentario}
+    except Exception as e:
+        return {"status": "erro", "mensagem": str(e)}
+    finally:
+        conn.close()
+
+def buscar_comentarios_db(servico_id):
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cursor:
+            sql = """
+                SELECT id, servico_id, usuario_id, usuario_nome, texto, criado_em 
+                FROM comentarios_internos 
+                WHERE servico_id = %s 
+                ORDER BY criado_em ASC
+            """
+            cursor.execute(sql, (servico_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        return []
+    finally:
+        conn.close()
+
+def obter_parametros_pendencias_db():
+    conn = get_db_connection()
+    if not conn: return {"cosampa": [], "distribuidora": []}
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id, categoria, descricao FROM itens_correcao_cosampa WHERE ativo = 1 ORDER BY categoria, id")
+            cosampa = cursor.fetchall()
+            
+            cursor.execute("SELECT id, descricao FROM itens_correcao_distribuidora WHERE ativo = 1 ORDER BY id")
+            distribuidora = cursor.fetchall()
+            
+            return {"cosampa": cosampa, "distribuidora": distribuidora}
+    except Exception as e:
+        return {"cosampa": [], "distribuidora": []}
+    finally:
+        conn.close()

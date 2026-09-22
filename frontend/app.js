@@ -62,25 +62,60 @@ const PERFIS_INICIAIS = {
 };
 
 const USUARIOS_INICIAIS = [
-  { id: 1, nome: 'Administrador Master', email: 'admin@cosampa.com.br', perfil: 'Master', telas_custom: null },
-  { id: 2, nome: 'Carlos Fechamento', email: 'carlos@cosampa.com.br', perfil: 'Fechamento', telas_custom: null },
-  { id: 3, nome: 'Fernanda Operação', email: 'fernanda@cosampa.com.br', perfil: 'Operação', telas_custom: null },
-  { id: 4, nome: 'Roberto Faturamento', email: 'roberto@cosampa.com.br', perfil: 'Faturamento', telas_custom: null }
+  { id: 1, nome: 'Administrador Master', email: 'admin@cosampa.com.br', perfil: 'Master', cargo: 'Diretor', telas_custom: null },
+  { id: 2, nome: 'Carlos Fechamento', email: 'carlos@cosampa.com.br', perfil: 'Fechamento', cargo: 'Analista', telas_custom: null },
+  { id: 3, nome: 'Fernanda Operação', email: 'fernanda@cosampa.com.br', perfil: 'Operação', cargo: 'Analista', telas_custom: null },
+  { id: 4, nome: 'Roberto Faturamento', email: 'roberto@cosampa.com.br', perfil: 'Faturamento', cargo: 'Analista', telas_custom: null },
+  { id: 5, nome: 'Carlos Eduardo', email: 'coordenador@cosampa.com.br', perfil: 'Master', cargo: 'Coordenador', telas_custom: null },
+  { id: 6, nome: 'Roberto Santos', email: 'supervisor@cosampa.com.br', perfil: 'Operação', cargo: 'Supervisor', telas_custom: null }
 ];
 
 class AuthService {
   constructor() {
     this.perfis = JSON.parse(localStorage.getItem('siges_perfis')) || { ...PERFIS_INICIAIS };
-    this.usuarios = JSON.parse(localStorage.getItem('siges_usuarios')) || [ ...USUARIOS_INICIAIS ];
+    
+    // Força merge dos usuários iniciais (para atualizar a modelagem com cargos caso o localStorage seja antigo)
+    const localUsers = JSON.parse(localStorage.getItem('siges_usuarios')) || [];
+    const mergedUsers = [...USUARIOS_INICIAIS];
+    localUsers.forEach(lu => {
+      const idx = mergedUsers.findIndex(mu => mu.email === lu.email);
+      if (idx === -1) {
+        if (!lu.cargo) lu.cargo = 'Analista'; // fallback
+        mergedUsers.push(lu);
+      } else {
+        if (!mergedUsers[idx].cargo && lu.cargo) mergedUsers[idx].cargo = lu.cargo;
+      }
+    });
+    this.usuarios = mergedUsers;
+    
     this.usuarioLogado = JSON.parse(localStorage.getItem('siges_usuario_logado')) || null;
+    
+    // Atualiza o logado se ele não tiver cargo
+    if (this.usuarioLogado && !this.usuarioLogado.cargo) {
+       const uAtualizado = this.usuarios.find(u => u.email === this.usuarioLogado.email);
+       if (uAtualizado) this.usuarioLogado.cargo = uAtualizado.cargo;
+       this.salvar();
+    }
   }
 
   isAutenticado() { return !!this.usuarioLogado; }
 
   login(email) {
-    const user = this.usuarios.find(u => u.email.toLowerCase() === email.toLowerCase()) || {
-      id: Date.now(), nome: email.split('@')[0], email: email, perfil: 'Master', telas_custom: null
-    };
+    let user = this.usuarios.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (!user) {
+      user = USUARIOS_INICIAIS.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (!user) {
+        user = {
+          id: Date.now(), nome: email.split('@')[0], email: email, perfil: 'Operação', cargo: 'Analista', telas_custom: null
+        };
+      }
+      this.usuarios.push(user);
+    }
+    
+    // Força correção de cargo caso tenha ficado preso como undefined no passado
+    if (user.email === 'supervisor@cosampa.com.br') user.cargo = 'Supervisor';
+    if (user.email === 'coordenador@cosampa.com.br') user.cargo = 'Coordenador';
+    
     this.usuarioLogado = user;
     this.salvar();
     return user;
@@ -126,8 +161,8 @@ class AuthService {
     }
   }
 
-  adicionarUsuario(nome, email, perfil) {
-    const u = { id: Date.now(), nome, email, perfil, telas_custom: null };
+  adicionarUsuario(nome, email, perfil, cargo = 'Analista') {
+    const u = { id: Date.now(), nome, email, perfil, cargo, telas_custom: null };
     this.usuarios.push(u);
     this.salvar();
     return u;
@@ -146,10 +181,13 @@ const authService = new AuthService();
 
 class Store {
   constructor() {
+    const savedFiltros = JSON.parse(localStorage.getItem('siges_filtros'));
+    const savedPagina = parseInt(localStorage.getItem('siges_pagina')) || 1;
+    
     this.state = {
       telaAtualId: document.body.getAttribute('data-page-id') || 'gerencial',
       pinSidebar: true,
-      filtros: { periodo: 'mes', contrato: 'todos', tipo: 'todos', area: 'todas', status: 'todos', busca: '' },
+      filtros: savedFiltros || { periodo: 'mes', contrato: 'todos', tipo: 'todos', area: 'todas', status: 'todos', busca: '', supervisor: 'todos', coordenador: 'todos' },
       presets: JSON.parse(localStorage.getItem('siges_presets')) || [{ id: 'p1', nome: 'Todos os Contratos', filtros: { periodo: 'mes', contrato: 'todos', tipo: 'todos', area: 'todas', status: 'todos', busca: '' } }],
       modeGestao: 'perfil',
       usuarioGestaoId: 3,
@@ -158,9 +196,11 @@ class Store {
       drawerServicoId: null,
       toast: null,
       carregando: false,
-      paginaAtual: 1,
+      paginaAtual: savedPagina,
       itensPorPagina: 10,
+      totalServicos: 0,
       servicos: [],
+      kpisGlobais: null,
       perfisTela: [],
       perfilTelaAtivoId: null,
       wizardImportacao: {
@@ -177,7 +217,8 @@ class Store {
         carregando: false,
         sucesso: null,
         faltamMapeamentos: []
-      }
+      },
+      parametrosPendencias: { cosampa: [], distribuidora: [] }
     };
 
     this.listeners = [];
@@ -193,6 +234,8 @@ class Store {
   setState(partial) {
     this.state = { ...this.state, ...partial };
     localStorage.setItem('siges_presets', JSON.stringify(this.state.presets));
+    localStorage.setItem('siges_filtros', JSON.stringify(this.state.filtros));
+    localStorage.setItem('siges_pagina', this.state.paginaAtual);
     this.listeners.forEach(l => l(this.state));
   }
 
@@ -203,20 +246,81 @@ class Store {
       const params = new URLSearchParams();
       if (f.contrato !== 'todos') params.append('contrato', f.contrato);
       if (f.tipo !== 'todos') params.append('tipo', f.tipo);
-      if (f.status !== 'todos') params.append('status_id', f.status);
+      
+      const pageId = document.body.getAttribute('data-page-id') || 'gerencial';
+      
+      if (f.status !== 'todos') {
+        params.append('status_id', f.status);
+      } else {
+        if (pageId === 'pendencias') params.append('status_in', '2,4,6,7');
+        else if (pageId === 'faturamento') params.append('status_id', '8');
+        else if (pageId === 'conciliacoes') params.append('status_in', '9,10');
+        else if (pageId === 'finalizados') params.append('status_in', '14,15');
+        // gerencial e medicao (que tem filtros proprios ou abertos) pegam 'todos'
+      }
+
+      // Filtro Hierárquico Forçado: Se o usuário logado tiver cargo Coordenador ou Supervisor
+      if (authService.usuarioLogado && authService.usuarioLogado.cargo) {
+        const cargo = authService.usuarioLogado.cargo.toLowerCase();
+        let atualizou = false;
+        
+        if (cargo === 'coordenador' && (!f.coordenador || f.coordenador === 'todos' || f.coordenador === 'coordenador')) {
+          f.coordenador = authService.usuarioLogado.nome; // Injeção automática
+          atualizou = true;
+        }
+        if (cargo === 'supervisor' && (!f.supervisor || f.supervisor === 'todos' || f.supervisor === 'supervisor')) {
+          f.supervisor = authService.usuarioLogado.nome; // Injeção automática
+          atualizou = true;
+        }
+        
+        if (atualizou) {
+          this.setState({ filtros: { ...f } });
+        }
+      }
+
+      if (f.coordenador && f.coordenador !== 'todos') params.append('coordenador', f.coordenador);
+      if (f.supervisor && f.supervisor !== 'todos') params.append('supervisor', f.supervisor);
       if (f.busca) params.append('busca', f.busca);
+
+      const skip = (this.state.paginaAtual - 1) * this.state.itensPorPagina;
+      params.append('skip', skip);
+      params.append('limit', this.state.itensPorPagina);
 
       const res = await fetch(`/api/servicos?${params.toString()}`);
       if (res.ok) {
-        const dados = await res.json();
+        const jsonRes = await res.json();
+        const dados = jsonRes.data || [];
+        const total = jsonRes.total || 0;
         const focoId = dados.length > 0 ? dados[0].id : null;
-        this.setState({ servicos: dados, servicoFocoId: focoId, carregando: false, paginaAtual: 1 });
+        this.setState({ servicos: dados, totalServicos: total, servicoFocoId: focoId, carregando: false });
       } else {
         this.setState({ carregando: false });
       }
     } catch (e) {
       console.warn('Erro ao buscar API /api/servicos:', e);
       this.setState({ carregando: false });
+    }
+  }
+
+  async carregarKPIsAPI() {
+    try {
+      const res = await fetch('/api/dashboard/kpis');
+      if (res.ok) {
+        const data = await res.json();
+        this.setState({ kpisGlobais: data });
+      }
+    } catch (e) {}
+  }
+
+  async carregarParametrosPendenciasAPI() {
+    try {
+      const res = await fetch('/api/parametros/pendencias');
+      if (res.ok) {
+        const data = await res.json();
+        this.setState({ parametrosPendencias: data });
+      }
+    } catch (e) {
+      console.warn("Erro ao buscar parâmetros pendências", e);
     }
   }
 
@@ -248,18 +352,9 @@ class Store {
   }
 
   getServicosFiltrados() {
-    const f = this.state.filtros;
-    return this.state.servicos.filter(s => {
-      if (f.contrato !== 'todos' && s.ct !== f.contrato) return false;
-      if (f.tipo !== 'todos' && s.tp !== f.tipo) return false;
-      if (f.status && f.status !== 'todos' && s.st !== Number(f.status)) return false;
-      if (f.supervisor && f.supervisor !== 'todos' && s.supervisor !== f.supervisor) return false;
-      if (f.busca) {
-        const q = f.busca.toLowerCase();
-        if (!`${s.id} ${s.ob} ${s.tp} ${s.ct} ${s.pep||''} ${s.tdc||''} ${s.supervisor||''} ${s.equipe||''}`.toLowerCase().includes(q)) return false;
-      }
-      return true;
-    });
+    // Com paginação server-side, a filtragem já é feita no backend
+    // Retornamos os serviços da página atual
+    return this.state.servicos;
   }
 
   tratarPendenciaItem(servicoId, indexItem, novoDet = null, anexoNome = null) {
@@ -289,6 +384,37 @@ class Store {
     this.setState({ servicos: novos });
     if (ret) this.notifyToast(`${servicoId} — Todas as pendências foram tratadas! Retornou para 01. Aguardando Conferência.`);
   }
+
+  async tramitarLoteAPI(servicoIds, novoStatus, msg, extraData = {}) {
+    if (!confirm(`Confirma movimentação de ${servicoIds.length} serviço(s) para: ${msg}?`)) return false;
+    this.setState({ carregando: true });
+    
+    try {
+      const res = await fetch(`/api/servicos/lote/tramitar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          servico_ids: servicoIds,
+          novo_status_id: parseInt(novoStatus),
+          dados_extras: extraData,
+          usuario_nome: authService.usuarioLogado?.nome || 'Analista'
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'sucesso') {
+        this.notifyToast(`${data.mensagem}`);
+      } else {
+        alert(data.mensagem || 'Falha ao tramitar lote');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erro de conexão ao tramitar lote.');
+    }
+    
+    await this.carregarServicosAPI();
+    this.setState({ selecionados: [], drawerServicoId: null });
+    return true;
+  }
 }
 
 const store = new Store();
@@ -315,8 +441,12 @@ function initPage() {
   localStorage.removeItem('siges_svcs');
   store.subscribe(state => renderPageUI(pageId, state));
   
-  // Carrega perfis primeiro, depois os serviços
-  store.carregarPerfisTelaAPI().then(() => {
+  // Carrega KPIs, parametros e perfis primeiro, depois os serviços
+  Promise.all([
+    store.carregarKPIsAPI(),
+    store.carregarPerfisTelaAPI(),
+    store.carregarParametrosPendenciasAPI()
+  ]).then(() => {
     store.carregarServicosAPI();
   });
 }
@@ -534,12 +664,14 @@ function bindPaginadorEvents(container, totalItens) {
   container.querySelector('#btn-pag-ant')?.addEventListener('click', () => {
     if (state.paginaAtual > 1) {
       store.setState({ paginaAtual: state.paginaAtual - 1 });
+      store.carregarServicosAPI();
     }
   });
 
   container.querySelector('#btn-pag-prox')?.addEventListener('click', () => {
     if (state.paginaAtual < totalPaginas) {
       store.setState({ paginaAtual: state.paginaAtual + 1 });
+      store.carregarServicosAPI();
     }
   });
 
@@ -547,6 +679,7 @@ function bindPaginadorEvents(container, totalItens) {
     btn.addEventListener('click', () => {
       const p = Number(btn.getAttribute('data-page'));
       store.setState({ paginaAtual: p });
+      store.carregarServicosAPI();
     });
   });
 }
@@ -640,9 +773,13 @@ function renderPageUI(pageId, state) {
   // FilterBar Dinâmica
   const filterBar = document.getElementById('filterbar-container');
   if (filterBar && pageId !== 'gestao_acessos') {
-    const contratosUnicos = Array.from(new Set(state.servicos.map(s => s.ct))).filter(Boolean);
-    const tiposUnicos = Array.from(new Set(state.servicos.map(s => s.tp))).filter(Boolean);
-    const supervisoresUnicos = Array.from(new Set(state.servicos.map(s => s.supervisor))).filter(Boolean);
+    const kpis = state.kpisGlobais || {};
+    const opcoes = kpis.opcoes_filtro || { contratos: [], tipos: [], supervisores: [] };
+    
+    const contratosUnicos = opcoes.contratos;
+    const tiposUnicos = opcoes.tipos;
+    const supervisoresUnicos = opcoes.supervisores || [];
+    const coordenadoresUnicos = opcoes.coordenadores || [];
 
     filterBar.innerHTML = `
       <div class="filter-bar">
@@ -662,9 +799,13 @@ function renderPageUI(pageId, state) {
           <option value="todos" ${state.filtros.status==='todos'?'selected':''}>Todos os status (15)</option>
           ${Object.keys(STATUS_DEFS).map(k => `<option value="${k}" ${state.filtros.status===k?'selected':''}>0${k}. ${STATUS_DEFS[k].n}</option>`).join('')}
         </select>
+        <select id="f-coordenador" class="select-input" title="Filtro Hierárquico de Coordenador (RN-05)">
+          <option value="todos" ${(!state.filtros.coordenador || state.filtros.coordenador==='todos')?'selected':''}>Coordenadores (RN-05)</option>
+          ${coordenadoresUnicos.map(c => `<option value="${c}" ${(state.filtros.coordenador || '').trim()===c.trim()?'selected':''}>👑 ${c}</option>`).join('')}
+        </select>
         <select id="f-supervisor" class="select-input" title="Filtro Hierárquico de Supervisor (RN-05)">
-          <option value="todos" ${state.filtros.supervisor==='todos'?'selected':''}>Supervisores (RN-05)</option>
-          ${supervisoresUnicos.map(sup => `<option value="${sup}" ${state.filtros.supervisor===sup?'selected':''}>👤 ${sup}</option>`).join('')}
+          <option value="todos" ${(!state.filtros.supervisor || state.filtros.supervisor==='todos')?'selected':''}>Supervisores (RN-05)</option>
+          ${supervisoresUnicos.map(sup => `<option value="${sup}" ${(state.filtros.supervisor || '').trim()===sup.trim()?'selected':''}>👤 ${sup}</option>`).join('')}
         </select>
         <input id="f-busca" class="text-input" value="${state.filtros.busca}" placeholder="Buscar SOB, PEP, TDC, obra..." style="width:200px">
       </div>
@@ -675,18 +816,27 @@ function renderPageUI(pageId, state) {
     `;
     filterBar.querySelector('#f-contrato')?.addEventListener('change', (e) => {
       store.setState({ filtros: { ...store.getState().filtros, contrato: e.target.value }, paginaAtual: 1 });
+      store.carregarServicosAPI();
     });
     filterBar.querySelector('#f-tipo')?.addEventListener('change', (e) => {
       store.setState({ filtros: { ...store.getState().filtros, tipo: e.target.value }, paginaAtual: 1 });
+      store.carregarServicosAPI();
     });
     filterBar.querySelector('#f-status')?.addEventListener('change', (e) => {
       store.setState({ filtros: { ...store.getState().filtros, status: e.target.value }, paginaAtual: 1 });
+      store.carregarServicosAPI();
+    });
+    filterBar.querySelector('#f-coordenador')?.addEventListener('change', (e) => {
+      store.setState({ filtros: { ...store.getState().filtros, coordenador: e.target.value }, paginaAtual: 1 });
+      store.carregarServicosAPI();
     });
     filterBar.querySelector('#f-supervisor')?.addEventListener('change', (e) => {
       store.setState({ filtros: { ...store.getState().filtros, supervisor: e.target.value }, paginaAtual: 1 });
+      store.carregarServicosAPI();
     });
     filterBar.querySelector('#f-busca')?.addEventListener('input', (e) => {
       store.setState({ filtros: { ...store.getState().filtros, busca: e.target.value }, paginaAtual: 1 });
+      store.carregarServicosAPI();
     });
     
     bindToolbarEvents(filterBar, state);
@@ -695,7 +845,7 @@ function renderPageUI(pageId, state) {
   // Renderização da Tela
   if (pageId === 'gerencial') renderGerencial(servicosFiltrados, state);
   else if (pageId === 'medicao') renderMedicao(servicosFiltrados, state);
-  else if (pageId === 'pendencias') renderPendencias(servicosFiltrados.filter(s => [2, 4, 6, 7].includes(s.st)), state);
+  else if (pageId === 'pendencias') renderPendencias(servicosFiltrados, state);
   else if (pageId === 'gestao_acessos') renderGestaoAcessos();
   else renderGenericScreen(pageId, servicosFiltrados);
 
@@ -709,11 +859,15 @@ function renderGerencial(svcs, state) {
   const container = document.querySelector('.view-container');
   if (!container) return;
 
-  const totalValor = svcs.reduce((a, s) => a + s.v, 0);
-  const estourados = svcs.filter(s => s.d > 5);
+  const kpis = state.kpisGlobais || {
+    servicos_ativos: 0,
+    valor_esteira: 0,
+    sla_estourado_count: 0,
+    total_geral: 0,
+    status_counts: {}
+  };
 
-  const pag = state.paginaAtual || 1;
-  const pagItens = svcs.slice((pag - 1) * 10, pag * 10);
+  const pagItens = svcs; // svcs já vem paginado do server
 
   container.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:14px;max-width:1420px">
@@ -721,13 +875,13 @@ function renderGerencial(svcs, state) {
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
         <div class="kpi-card">
           <div style="font-size:10.5px;font-weight:600;color:#71807a;text-transform:uppercase">Serviços na Esteira</div>
-          <div class="kpi-val">${svcs.length}</div>
+          <div class="kpi-val">${kpis.servicos_ativos}</div>
           <div style="font-size:11.5px;color:#71807a;margin-top:4px">Base Real MySQL (siges.servicos)</div>
         </div>
         <div class="kpi-card">
           <div style="font-size:10.5px;font-weight:600;color:#71807a;text-transform:uppercase">Valor na Esteira</div>
-          <div class="kpi-val">R$ ${(totalValor/1000).toFixed(1)} mil</div>
-          <div style="font-size:11.5px;color:#71807a;margin-top:4px">soma da amostragem ativa</div>
+          <div class="kpi-val">R$ ${(kpis.valor_esteira/1000).toFixed(1)} mil</div>
+          <div style="font-size:11.5px;color:#71807a;margin-top:4px">soma da base ativa</div>
         </div>
         <div class="kpi-card">
           <div style="font-size:10.5px;font-weight:600;color:#71807a;text-transform:uppercase">Por Macroetapa</div>
@@ -742,7 +896,7 @@ function renderGerencial(svcs, state) {
         <div class="kpi-card">
           <div style="font-size:10.5px;font-weight:600;color:#71807a;text-transform:uppercase">Tempo Médio na Etapa</div>
           <div class="kpi-val">3,0 d</div>
-          <div style="font-size:11.5px;color:var(--color-alert);margin-top:4px;font-weight:600">${estourados.length} com SLA estourado</div>
+          <div style="font-size:11.5px;color:var(--color-alert);margin-top:4px;font-weight:600">${kpis.sla_estourado_count} com SLA estourado</div>
         </div>
       </div>
 
@@ -751,15 +905,15 @@ function renderGerencial(svcs, state) {
         <div style="background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:16px 18px">
           <div style="display:flex;justify-content:space-between;align-items:baseline">
             <span style="font-size:13px;font-weight:700">Serviços por status (Base Real)</span>
-            <span style="font-size:11px;color:#8a9791">${svcs.length} serviços carregados</span>
+            <span style="font-size:11px;color:#8a9791">${kpis.total_geral} serviços totais</span>
           </div>
           <div style="display:flex;align-items:flex-end;gap:5px;height:158px;margin-top:14px">
             ${(() => {
-              const statusCounts = Object.keys(STATUS_DEFS).map(stId => svcs.filter(s => s.st === Number(stId)).length);
-              const maxC = Math.max(...statusCounts, 1);
+              const statusCounts = kpis.status_counts || {};
+              const maxC = Math.max(...Object.values(statusCounts), 1);
               return Object.keys(STATUS_DEFS).map(stId => {
                 const def = STATUS_DEFS[stId];
-                const c = svcs.filter(s => s.st === Number(stId)).length;
+                const c = statusCounts[stId] || 0;
                 const h = c > 0 ? Math.max(6, Math.round((c / maxC) * 125)) : 4;
                 return `
                   <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
@@ -779,17 +933,17 @@ function renderGerencial(svcs, state) {
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
               <span style="width:86px;font-size:11.5px">Medição</span>
               <div style="flex:1;height:14px;background:#f0f3f2;border-radius:4px;overflow:hidden"><div style="width:75%;height:100%;background:#1c5f4b"></div></div>
-              <span style="font-weight:600;font-family:var(--font-mono);font-size:11.5px">R$ ${(totalValor*0.6/1000).toFixed(1)}k</span>
+              <span style="font-weight:600;font-family:var(--font-mono);font-size:11.5px">R$ ${(kpis.valor_esteira*0.6/1000).toFixed(1)}k</span>
             </div>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
               <span style="width:86px;font-size:11.5px">Pendências</span>
               <div style="flex:1;height:14px;background:#f0f3f2;border-radius:4px;overflow:hidden"><div style="width:25%;height:100%;background:#b03a28"></div></div>
-              <span style="font-weight:600;font-family:var(--font-mono);font-size:11.5px">R$ ${(totalValor*0.2/1000).toFixed(1)}k</span>
+              <span style="font-weight:600;font-family:var(--font-mono);font-size:11.5px">R$ ${(kpis.valor_esteira*0.2/1000).toFixed(1)}k</span>
             </div>
             <div style="display:flex;align-items:center;gap:10px">
               <span style="width:86px;font-size:11.5px">Finalizados</span>
               <div style="flex:1;height:14px;background:#f0f3f2;border-radius:4px;overflow:hidden"><div style="width:40%;height:100%;background:#16a34a"></div></div>
-              <span style="font-weight:600;font-family:var(--font-mono);font-size:11.5px">R$ ${(totalValor*0.2/1000).toFixed(1)}k</span>
+              <span style="font-weight:600;font-family:var(--font-mono);font-size:11.5px">R$ ${(kpis.valor_esteira*0.2/1000).toFixed(1)}k</span>
             </div>
           </div>
         </div>
@@ -813,7 +967,7 @@ function renderGerencial(svcs, state) {
             </div>
           `;
         }).join('')}
-        ${renderPaginador(svcs.length, pag, 10)}
+        ${renderPaginador(state.totalServicos, state.paginaAtual, state.itensPorPagina)}
       </div>
     </div>
   `;
@@ -832,8 +986,7 @@ function renderMedicao(svcs, state) {
   const container = document.querySelector('.view-container');
   if (!container) return;
 
-  const pag = state.paginaAtual || 1;
-  const pagItens = svcs.slice((pag - 1) * 10, pag * 10);
+  const pagItens = svcs; // Já paginado do backend
 
   container.innerHTML = `
     <div style="display:flex;gap:14px;align-items:flex-start">
@@ -865,7 +1018,7 @@ function renderMedicao(svcs, state) {
           </tbody>
         </table>
         
-        ${renderPaginador(svcs.length, pag, 10)}
+        ${renderPaginador(state.totalServicos, state.paginaAtual, state.itensPorPagina)}
       </div>
 
       <div style="width:280px;background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
@@ -889,9 +1042,12 @@ function renderMedicao(svcs, state) {
           <div style="font-size:11px;color:#71807a;margin-bottom:10px">Selecione os itens e envie para a Operação.</div>
           
           <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
-            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check-cosampa" value="Fotos (S/ Evidência, Baixa Qualidade)"> Fotos (S/ Evidência, Baixa Qualidade)</label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check-cosampa" value="Materiais (Incorretos, Sobras)"> Materiais (Incorretos, Sobras)</label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check-cosampa" value="Documentação (Sem croqui, croqui incorreto)"> Documentação (S/ Croqui, Croqui Errado)</label>
+            ${state.parametrosPendencias?.cosampa?.map(p => `
+              <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+                <input type="checkbox" class="gp-check-cosampa" value="${p.categoria}: ${p.descricao}">
+                <span><b>${p.categoria}</b>: ${p.descricao}</span>
+              </label>
+            `).join('') || '<span style="font-size:11px;color:#71807a">Nenhum parâmetro encontrado.</span>'}
           </div>
           <button id="btn-enviar-pend-cosampa" style="width:100%;background:#fdf3e3;color:#8a5a0d;border:1px solid #ecd9b7;border-radius:8px;padding:8px;font-size:11px;font-weight:600;margin-bottom:14px">Gerar Pendência Cosampa (02)</button>
         </div>
@@ -901,9 +1057,12 @@ function renderMedicao(svcs, state) {
           <div style="font-size:11px;color:#71807a;margin-bottom:10px">Selecione os itens e bloqueie a SOB.</div>
           
           <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
-            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check-dist" value="Vozes não cadastradas no Contrato"> Vozes não cadastradas</label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check-dist" value="Serviço não despachado para Cosampa"> Serviço não despachado</label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" class="gp-check-dist" value="Ordem já faturada"> Ordem já faturada</label>
+            ${state.parametrosPendencias?.distribuidora?.map(p => `
+              <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+                <input type="checkbox" class="gp-check-dist" value="${p.descricao}">
+                <span>${p.descricao}</span>
+              </label>
+            `).join('') || '<span style="font-size:11px;color:#71807a">Nenhum parâmetro encontrado.</span>'}
           </div>
           <button id="btn-enviar-pend-distribuidora" style="width:100%;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:8px;padding:8px;font-size:11px;font-weight:600">Gerar Pend. Distribuidora (04)</button>
         </div>
@@ -1006,33 +1165,22 @@ function renderMedicao(svcs, state) {
   container.querySelector('#btn-enviar-pend-cosampa')?.addEventListener('click', () => {
     if (state.selecionados.length === 0) return alert('Selecione serviços para gerar pendência.');
     const gps = Array.from(container.querySelectorAll('.gp-check-cosampa:checked')).map(c => c.value);
-    const pItems = (gps.length ? gps : ['Geral Cosampa']).map(t => ({ t, tr: false, det: '', anx: null }));
-
-    const novos = state.servicos.map(s => {
-      if (state.selecionados.includes(s.id)) {
-        return { ...s, st: 2, pend: pItems };
-      }
-      return s;
-    });
-
-    store.setState({ servicos: novos, selecionados: [] });
-    store.notifyToast(`${state.selecionados.length} serviço(s) enviado(s) para 02. Pendências Operacionais Cosampa!`);
+    const retStr = gps.length ? 'Cosampa - ' + gps.join(', ') : 'Cosampa - Geral';
+    store.tramitarLoteAPI(state.selecionados, 2, 'Pendências Operacionais Cosampa (02)', { ret: retStr, inconformidade: retStr });
   });
 
   container.querySelector('#btn-enviar-pend-distribuidora')?.addEventListener('click', () => {
     if (state.selecionados.length === 0) return alert('Selecione serviços para gerar pendência.');
-    const gps = Array.from(container.querySelectorAll('.gp-check-dist:checked')).map(c => c.value);
-    const pItems = (gps.length ? gps : ['Geral Distribuidora']).map(t => ({ t, tr: false, det: '', anx: null }));
+    const gps = Array.from(container.querySelectorAll('.gp-check-distribuidora:checked')).map(c => c.value);
+    const retStr = gps.length ? 'Distribuidora - ' + gps.join(', ') : 'Distribuidora - Geral';
+    store.tramitarLoteAPI(state.selecionados, 4, 'Pendências da Distribuidora (04)', { ret: retStr, inconformidade: retStr });
+  });
 
-    const novos = state.servicos.map(s => {
-      if (state.selecionados.includes(s.id)) {
-        return { ...s, st: 4, pend: pItems }; // Status 04 Distribuidora
-      }
-      return s;
-    });
-
-    store.setState({ servicos: novos, selecionados: [] });
-    store.notifyToast(`${state.selecionados.length} serviço(s) enviado(s) para 04. Pendências Distribuidora!`);
+  container.querySelector('#btn-enviar-pend-terceiros')?.addEventListener('click', () => {
+    if (state.selecionados.length === 0) return alert('Selecione serviços para gerar pendência.');
+    const gps = Array.from(container.querySelectorAll('.gp-check-terceiros:checked')).map(c => c.value);
+    const retStr = gps.length ? 'Terceiros - ' + gps.join(', ') : 'Terceiros - Geral';
+    store.tramitarLoteAPI(state.selecionados, 6, 'Pendências de Terceiros (06)', { ret: retStr, inconformidade: retStr });
   });
 }
 
@@ -1040,8 +1188,7 @@ function renderPendencias(svcs, state) {
   const container = document.querySelector('.view-container');
   if (!container) return;
 
-  const pag = state.paginaAtual || 1;
-  const pagItens = svcs.slice((pag - 1) * 10, pag * 10);
+  const pagItens = svcs; // Já paginado do backend
   const foco = pagItens.find(s => s.id === state.servicoFocoId) || pagItens[0] || svcs[0];
 
   container.innerHTML = `
@@ -1066,7 +1213,7 @@ function renderPendencias(svcs, state) {
           </tbody>
         </table>
 
-        ${renderPaginador(svcs.length, pag, 10)}
+        ${renderPaginador(state.totalServicos, state.paginaAtual, state.itensPorPagina)}
       </div>
 
       <div style="width:360px;background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
@@ -1076,9 +1223,16 @@ function renderPendencias(svcs, state) {
             <span id="btn-open-drawer-foco" style="font-size:11.5px;font-weight:600;color:var(--ac-primary);cursor:pointer">Detalhamento ↗</span>
           </div>
 
-          <span class="badge-status" style="background:#ffedd5;color:#9a3412;margin-bottom:12px">
-            <span class="badge-status-num">0${foco.st}</span> ${STATUS_DEFS[foco.st]?.n || 'Pendências'}
-          </span>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span class="badge-status" style="background:#ffedd5;color:#9a3412">
+              <span class="badge-status-num">0${foco.st}</span> ${STATUS_DEFS[foco.st]?.n || 'Pendências'}
+            </span>
+            ${foco.data && foco.data !== 'Hoje' ? `
+              <span style="font-size:11px;font-weight:700;color:#dc2626;background:#fee2e2;padding:2px 6px;border-radius:4px">
+                ⏳ Atraso SLA: ${Math.max(0, Math.floor((new Date() - new Date(foco.data)) / (1000*60*60*24)))} dias
+              </span>
+            ` : ''}
+          </div>
 
           <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
             <div style="font-size:11px;color:#71807a">Supervisor: <b>${foco.supervisor || '—'}</b> · Equipe: <b>${foco.equipe || '—'}</b></div>
@@ -1159,10 +1313,18 @@ function renderPendencias(svcs, state) {
       if (foco.st === 7 || foco.st === 4) statusRetorno = 3;
 
       try {
+        if (necessitaReprog && dtReprog) {
+          await fetch(`/api/servicos/${foco.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data_programacao: dtReprog })
+          });
+        }
+
         const res = await fetch(`/api/servicos/${foco.id}/tramitar`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ novo_status_id: statusRetorno, usuario_nome: 'Supervisor Operacional' })
+          body: JSON.stringify({ novo_status_id: statusRetorno, usuario_nome: authService.usuarioLogado?.nome || 'Supervisor Operacional' })
         });
         const data = await res.json();
         if (res.ok && data.status === 'sucesso') {
@@ -1198,8 +1360,7 @@ function renderGenericScreen(pageId, svcs) {
   const info = TELAS_DEF.find(t => t.id === pageId) || { label: pageId };
 
   const state = store.getState();
-  const pag = state.paginaAtual || 1;
-  const pagItens = svcs.slice((pag - 1) * 10, pag * 10);
+  const pagItens = svcs; // Já paginado do backend
 
   container.innerHTML = `
     <div style="background:#fff;border:1px solid var(--border-subtle);border-radius:10px;overflow:hidden">
@@ -1238,7 +1399,7 @@ function renderGenericScreen(pageId, svcs) {
         </tbody>
       </table>
 
-      ${renderPaginador(svcs.length, pag, 10)}
+      ${renderPaginador(state.totalServicos, state.paginaAtual, state.itensPorPagina)}
     </div>
   `;
 
@@ -1333,7 +1494,14 @@ async function renderGestaoAcessos() {
             <h4 style="margin:0 0 10px">Selecione o Usuário:</h4>
             ${usuarios.map(u => `
               <div class="item-user-select" data-id="${u.id}" style="padding:8px 10px;border-radius:6px;cursor:pointer;margin-bottom:4px;background:${u.id===usuarioFoco.id?'#eaf2ee':'transparent'};font-weight:${u.id===usuarioFoco.id?'700':'400'}">
-                ${u.nome} <br><small style="color:#71807a">${u.email} (${u.perfil})</small>
+                <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                  <div>
+                    ${u.nome} <br>
+                    <small style="color:#71807a">${u.email}</small><br>
+                    <small style="color:#1c5f4b;font-weight:600">Cargo: ${u.cargo || 'Analista'} | Perfil: ${u.perfil}</small>
+                  </div>
+                  <button class="btn-secondary btn-editar-usuario" data-id="${u.id}" style="font-size:10px;padding:2px 6px">Editar</button>
+                </div>
               </div>
             `).join('')}
           </div>
@@ -1395,6 +1563,43 @@ async function renderGestaoAcessos() {
           </div>
         </div>
       `}
+    </div>
+    
+    <!-- Modal Novo/Editar Usuário -->
+    <div id="modal-add-user" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;align-items:center;justify-content:center">
+      <div style="background:#fff;width:400px;border-radius:12px;padding:24px;box-shadow:0 10px 25px rgba(0,0,0,0.2)">
+        <h3 id="modal-add-user-title" style="margin:0 0 16px;font-size:16px">Cadastrar Novo Usuário</h3>
+        <form id="form-add-user">
+          <input type="hidden" id="add-user-id">
+          <div style="margin-bottom:12px">
+            <label style="display:block;font-size:11px;font-weight:700;margin-bottom:4px;color:#5b6b65">NOME COMPLETO</label>
+            <input type="text" id="add-user-nome" class="text-input" style="width:100%" required>
+          </div>
+          <div style="margin-bottom:12px">
+            <label style="display:block;font-size:11px;font-weight:700;margin-bottom:4px;color:#5b6b65">E-MAIL CORPORATIVO</label>
+            <input type="email" id="add-user-email" class="text-input" style="width:100%" required>
+          </div>
+          <div style="margin-bottom:12px">
+            <label style="display:block;font-size:11px;font-weight:700;margin-bottom:4px;color:#5b6b65">CARGO / NÍVEL HIERÁRQUICO</label>
+            <select id="add-user-cargo" class="select-input" style="width:100%" required>
+              <option value="Analista">Analista / Operacional</option>
+              <option value="Supervisor">Supervisor</option>
+              <option value="Coordenador">Coordenador</option>
+              <option value="Diretor">Diretor / Gerente</option>
+            </select>
+          </div>
+          <div style="margin-bottom:20px">
+            <label style="display:block;font-size:11px;font-weight:700;margin-bottom:4px;color:#5b6b65">PERFIL DE ACESSO (TELAS)</label>
+            <select id="add-user-perfil" class="select-input" style="width:100%" required>
+              ${Object.keys(perfis).map(p => `<option value="${p}">${p}</option>`).join('')}
+            </select>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button type="button" id="btn-close-modal-user" class="btn-secondary">Cancelar</button>
+            <button type="submit" class="btn-primary">Salvar Usuário</button>
+          </div>
+        </form>
+      </div>
     </div>
   `;
 
@@ -1472,13 +1677,66 @@ async function renderGestaoAcessos() {
     });
   }
 
+  // Editar Usuário
+  container.querySelectorAll('.btn-editar-usuario').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = parseInt(e.target.getAttribute('data-id'));
+      const u = authService.usuarios.find(x => x.id === id);
+      if (u) {
+        container.querySelector('#modal-add-user-title').innerText = 'Editar Usuário';
+        container.querySelector('#add-user-id').value = u.id;
+        container.querySelector('#add-user-nome').value = u.nome;
+        container.querySelector('#add-user-email').value = u.email;
+        container.querySelector('#add-user-cargo').value = u.cargo || 'Analista';
+        container.querySelector('#add-user-perfil').value = u.perfil;
+        container.querySelector('#modal-add-user').style.display = 'flex';
+      }
+    });
+  });
+
+  const modalUser = container.querySelector('#modal-add-user');
   container.querySelector('#btn-add-user')?.addEventListener('click', () => {
-    const nome = prompt('Nome do Operador:'); if (!nome) return;
-    const email = prompt('E-mail Corporativo:'); if (!email) return;
-    const perfil = prompt('Perfil (Master, Fechamento, Operação, Faturamento):', 'Operação');
-    authService.adicionarUsuario(nome, email, perfil);
-    store.notifyToast(`Usuário ${nome} cadastrado!`);
-    window.location.reload();
+    container.querySelector('#modal-add-user-title').innerText = 'Cadastrar Novo Usuário';
+    container.querySelector('#form-add-user').reset();
+    container.querySelector('#add-user-id').value = '';
+    modalUser.style.display = 'flex';
+  });
+  
+  container.querySelector('#btn-close-modal-user')?.addEventListener('click', () => {
+    modalUser.style.display = 'none';
+  });
+
+  container.querySelector('#form-add-user')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = container.querySelector('#add-user-id').value;
+    const nome = container.querySelector('#add-user-nome').value.trim();
+    const email = container.querySelector('#add-user-email').value.trim();
+    const cargo = container.querySelector('#add-user-cargo').value;
+    const perfil = container.querySelector('#add-user-perfil').value;
+    
+    if (!nome || !email) return;
+
+    if (id) {
+      // Editar
+      const userId = parseInt(id);
+      const userIdx = authService.usuarios.findIndex(u => u.id === userId);
+      if (userIdx !== -1) {
+        authService.usuarios[userIdx] = { ...authService.usuarios[userIdx], nome, email, cargo, perfil };
+        authService.salvar();
+        store.notifyToast(`Usuário ${nome} atualizado com sucesso!`);
+      }
+    } else {
+      // Cadastrar
+      authService.adicionarUsuario(nome, email, perfil, cargo);
+      store.notifyToast(`Usuário ${nome} cadastrado com sucesso!`);
+    }
+    
+    modalUser.style.display = 'none';
+    
+    // Força recarregar a view e selecionar o usuário editado
+    store.setState({ modeGestao: 'usuario', usuarioGestaoId: id ? parseInt(id) : authService.usuarios[authService.usuarios.length-1].id });
+    renderGestaoAcessos();
   });
 }
 
@@ -1591,7 +1849,22 @@ function renderDrawer(state) {
           </div>
         </div>
 
-        <!-- Seção 4: Log de Auditoria RN-01 -->
+        <!-- Seção 4: Motor Colaborativo (Timeline) -->
+        <div style="border-top:1px solid var(--border-subtle);padding-top:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="font-weight:700;font-size:12px;color:#1c5f4b">💬 Timeline & Comentários</div>
+            <button id="btn-refresh-timeline" class="btn-secondary" style="font-size:11px;padding:4px 8px;border:none;background:none">🔄 Atualizar</button>
+          </div>
+          <div id="timeline-list-container" style="max-height:180px;overflow-y:auto;background:#fafcfb;padding:8px;border-radius:6px;border:1px solid #eef1f0;font-size:11.5px;color:#333;margin-bottom:8px;display:flex;flex-direction:column;gap:8px">
+            <div style="text-align:center;padding:10px"><span class="spinner" style="width:14px;height:14px;border-color:#1c5f4b transparent #1c5f4b transparent"></span></div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <input type="text" id="drawer-input-comentario" class="text-input" style="flex:1;font-size:11px" placeholder="Escreva uma justificativa ou mencione @usuario...">
+            <button id="btn-send-comentario" class="btn-primary" style="font-size:11px;padding:0 10px">Enviar</button>
+          </div>
+        </div>
+
+        <!-- Seção 5: Log de Auditoria RN-01 -->
         <div style="border-top:1px solid var(--border-subtle);padding-top:12px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
             <div style="font-weight:700;font-size:12px">📜 Histórico de Auditoria (RN-01)</div>
@@ -1725,6 +1998,70 @@ function renderDrawer(state) {
       listCont.innerHTML = 'Erro de rede ao buscar logs.';
     }
   });
+
+  // Eventos do Motor Colaborativo (Timeline)
+  const loadTimeline = async () => {
+    const listCont = container.querySelector('#timeline-list-container');
+    listCont.innerHTML = '<span style="color:#71807a;font-size:11px">Carregando timeline...</span>';
+    try {
+      const res = await fetch(`/api/servicos/${s.id}/comentarios`);
+      if (res.ok) {
+        const coms = await res.json();
+        if (coms.length === 0) {
+          listCont.innerHTML = '<span style="color:#71807a;font-size:11px">Nenhuma interação registrada nesta SOB.</span>';
+        } else {
+          listCont.innerHTML = coms.map(c => {
+            // Regex para Menções (@)
+            let txt = c.texto.replace(/@([a-zA-Z0-9_]+)/g, '<span style="color:#1d4ed8;font-weight:600;background:#dbeafe;padding:0 4px;border-radius:4px">@$1</span>');
+            const d = new Date(c.criado_em).toLocaleString('pt-BR');
+            return `
+              <div style="background:#fff;border:1px solid #eef1f0;border-radius:6px;padding:8px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                  <strong style="color:#1c5f4b;font-size:11px">${c.usuario_nome}</strong>
+                  <span style="color:#71807a;font-size:10px">${d}</span>
+                </div>
+                <div style="line-height:1.4">${txt}</div>
+              </div>
+            `;
+          }).join('');
+          listCont.scrollTop = listCont.scrollHeight;
+        }
+      }
+    } catch (e) {
+      listCont.innerHTML = 'Erro ao buscar timeline.';
+    }
+  };
+
+  container.querySelector('#btn-refresh-timeline')?.addEventListener('click', loadTimeline);
+
+  container.querySelector('#btn-send-comentario')?.addEventListener('click', async () => {
+    const input = container.querySelector('#drawer-input-comentario');
+    const txt = input.value.trim();
+    if (!txt) return;
+    const usr = authService.usuarioLogado || { id: 99, nome: 'Operador' };
+    
+    input.disabled = true;
+    try {
+      const res = await fetch(`/api/servicos/${s.id}/comentarios`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario_id: usr.id, usuario_nome: usr.nome, texto: txt })
+      });
+      if (res.ok) {
+        input.value = '';
+        await loadTimeline();
+      } else {
+        alert('Falha ao enviar comentário.');
+      }
+    } catch (e) {
+      alert('Erro de rede.');
+    }
+    input.disabled = false;
+    input.focus();
+  });
+
+  // Carrega automaticamente a timeline ao abrir
+  loadTimeline();
 }
 
 function renderToast(msg) {

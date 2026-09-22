@@ -1,0 +1,50 @@
+# Plano de Implementação Modular (CDUV5)
+
+Para garantir que o sistema não quebre e que possamos testar cada novidade isoladamente, dividi todas as implementações em **5 Blocos Sequenciais**. A regra será: **Desenvolver, Testar e Validar** um bloco antes de iniciar o próximo.
+
+## User Review Required
+> [!IMPORTANT]
+> Avalie a ordem dos blocos abaixo. Se aprovar, iniciarei imediatamente o desenvolvimento do **Bloco 1 (Fundações de Infraestrutura)**. Se preferir priorizar outra área (como a Timeline ou o Módulo Financeiro), me avise e eu ajusto a ordem.
+
+---
+
+## Proposta de Fatiamento (Blocos de Execução)
+
+### 🧱 Bloco 1: Fundações de Infraestrutura e Performance
+*A base técnica necessária para as telas aguentarem os novos fluxos e o volume de dados.*
+- **Paginação e Lazy Loading (Backend & Frontend):** Refatorar a rota de listagem (`/api/servicos`) para aceitar parâmetros `skip` e `limit`, renderizando blocos no Frontend para evitar travamentos com bases massivas.
+- **Persistência de Sessão no Frontend:** Criar mecanismos no LocalStorage (ou na API de perfil) para salvar o estado da tabela do usuário (ordenação ativa, filtros selecionados e largura das colunas) para que resistam a um Refresh (F5).
+- **Desacoplamento de Chaves:** Refinamento no banco e na integração para separar o comportamento entre `num_servico` (Chave Primária do GPM) e `tdc` (Chave da Distribuidora).
+
+### 💬 Bloco 2: Motor Colaborativo (Timeline e Notificações)
+*O coração do CDUV5. Necessário antes de implementarmos as pendências, pois todas as pendências exigirão comentários postados na Timeline.*
+- **Modelagem da Timeline:** Criação do campo/tabela `comentarios_internos` no banco de dados com garantia de imutabilidade.
+- **Interface de Chat/Timeline:** Construção do painel lateral nos detalhes do serviço para postagem de comentários, gravando Data, Hora e Usuário.
+- **Menções e Notificações:** Implementação do parser de `@usuario` nos comentários e do gatilho automático de notificação (In-App) quando um serviço pular de um Analista de Fechamento para um Supervisor de Campo (Transição de Responsabilidade).
+
+### 🚧 Bloco 3: Módulo de Pendências (Tela 02)
+*Regras rígidas e fluxos hierárquicos para o trabalho de campo.*
+- **Filtro Hierárquico Automático:** A API deverá ler o perfil logado e pré-filtrar a grid de Pendências (Coordenador vê subordinados; Supervisor vê sua equipe), com opção de limpar filtro.
+- **Tabelas Auxiliares Configuráveis:** Criar as tabelas administrativas para os "Itens de Correção Cosampa" (Fotos, Materiais) e "Distribuidora" (retirando o texto *hardcode* atual).
+- **Mecânica de Reprogramação e SLA:** Integração do checkbox "Necessita Reprogramar" (obrigando input de `Data de Programação`) e criação dos alertas visuais de Atraso (Data de Execução vs Data Atual).
+
+### 🔀 Bloco 4: Fluxos de Tela 01 e Lotes Inteligentes
+*Refinamento da página de Medição e blindagem de operações massivas.*
+- **Falha Parcial em Processamento de Lote:** Atualizar as APIs (como o Envio para Validação) para que, se 1 serviço de um lote de 100 não tiver as validações obrigatórias preenchidas, **apenas ele** falhe. Os 99 avançam, e um sumário exibe o erro.
+- **Bypass do Fluxo Comercial:** Modificar a lógica do backend: Serviços do contrato Comercial aprovados sem pendência na Tela 01 avançam **diretamente para o Status 08** (Faturamento), ignorando o Status 03.
+- **Validação de Sistema de Origem:** Trava que exige a confirmação do campo "Sistema de Origem" antes do serviço sair da Tela 01.
+- **Serviços Irmãos e Hyperlinks GPM:** Na Grid da Tela 01, agrupar visualmente serviços da mesma obra/cliente e renderizar links externos clicáveis para o GPM.
+
+### 💰 Bloco 5: Módulo Financeiro e Conciliação (Telas 04 e 05)
+*O bloco mais denso de regras de negócio financeiras.*
+- **Novas Interfaces (Telas 04 e 05):** Criação das telas dedicadas para gerir os status `08` ao `13`, com inputs em massa de `Data de Validação` e `Mês de Emissão`.
+- **Evento Transacional de Conciliação (Status 10):** Ao importar planilha de pagamentos, criar o gerador automático de "Snapshot" (Auditoria Pré-Importação). Implementar a lógica de fechamento de evento (bateu = Finalizado; não bateu = Status 11).
+- **Comparador Dinâmico Bilateral (Status 11):** Criar a interface dividida `Valor Executado vs Valor Pago` na UI, com injeção automática de justificativa de divergência na Timeline do Bloco 2.
+
+---
+
+## Verificação e Testes
+Ao final de cada bloco, validaremos via frontend e rotas locais o funcionamento completo das features (Ex: no Bloco 1, simularemos uma tabela de 10.000 linhas validando o *Lazy Loading*).
+
+## Open Questions
+- Você está de acordo em começarmos pela parte de **Infraestrutura e Performance (Bloco 1)**? Caso sim, basta aprovar! Se quiser alterar a prioridade, me informe.
