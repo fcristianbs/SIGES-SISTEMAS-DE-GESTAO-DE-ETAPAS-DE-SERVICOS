@@ -254,7 +254,14 @@ class Store {
       } else {
         if (pageId === 'pendencias') params.append('status_in', '2,4,6,7');
         else if (pageId === 'faturamento') params.append('status_id', '8');
-        else if (pageId === 'conciliacoes') params.append('status_in', '9,10');
+        else if (pageId === 'conciliacoes') {
+          const sub = this.state.subAbaConciliacao || 'aguardando';
+          if (sub === 'aguardando') params.append('status_id', '9');
+          else if (sub === 'evento') params.append('status_id', '10');
+          else if (sub === 'divergencias') params.append('status_in', '11,12,13');
+          else if (sub === 'finalizados') params.append('status_id', '14');
+          else params.append('status_in', '9,10,11,12,13,14');
+        }
         else if (pageId === 'finalizados') params.append('status_in', '14,15');
         // gerencial e medicao (que tem filtros proprios ou abertos) pegam 'todos'
       }
@@ -648,8 +655,8 @@ function renderDynamicTableRow(s, state, isIrma = false) {
   const def = STATUS_DEFS[s.st] || STATUS_DEFS[1];
   const isSel = state.selecionados.includes(s.id);
   
-  const numOrdem = s.num_servico || s.id.replace('SOB-', '');
-  const gpmLink = `<a href="https://gpm.cosampa.com.br/ordens/${numOrdem}" target="_blank" onclick="event.stopPropagation()" style="color:#0284c7;text-decoration:underline;font-weight:700;display:inline-flex;align-items:center;gap:3px" title="Abrir ordem no sistema legado GPM (Nova Aba)"><svg style="width:11px;height:11px;vertical-align:middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg> ${s.id}</a>`;
+  const numOrdem = String(s.num_servico || s.id || '').replace(/^SOB-?/i, '').trim();
+  const gpmLink = `<a href="https://cosampa.gpm.srv.br/gpm/geral/relatorio_servico.php?cod_srv=${numOrdem}" target="_blank" onclick="event.stopPropagation()" style="color:#0284c7;text-decoration:underline;font-weight:700;display:inline-flex;align-items:center;gap:3px" title="Abrir ordem no sistema oficial GPM (Nova Aba)"><svg style="width:11px;height:11px;vertical-align:middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg> ${s.id}</a>`;
 
   const irmaBadge = isIrma ? `<span class="badge-irma" style="background:#e0f2fe;color:#0369a1;font-size:9.5px;padding:2px 6px;border-radius:4px;font-weight:700;border:1px solid #bae6fd;margin-left:4px" title="${typeof isIrma === 'string' ? isIrma : 'Serviço Irmão (compartilha Incidência/Obra/Cliente)'}">🔗 SOB Irmã</span>` : '';
 
@@ -871,6 +878,8 @@ function renderPageUI(pageId, state) {
   if (pageId === 'gerencial') renderGerencial(servicosFiltrados, state);
   else if (pageId === 'medicao') renderMedicao(servicosFiltrados, state);
   else if (pageId === 'pendencias') renderPendencias(servicosFiltrados, state);
+  else if (pageId === 'faturamento') renderFaturamento(servicosFiltrados, state);
+  else if (pageId === 'conciliacoes') renderConciliacoes(servicosFiltrados, state);
   else if (pageId === 'gestao_acessos') renderGestaoAcessos();
   else renderGenericScreen(pageId, servicosFiltrados);
 
@@ -1472,6 +1481,628 @@ function renderPendencias(svcs, state) {
   });
 }
 
+// ==============================================================================
+// CDU V5 - BLOCO 5: TELA 04 (FATURAMENTO) E TELA 05 (CONCILIAÇÃO)
+// ==============================================================================
+
+function renderFaturamento(svcs, state) {
+  const container = document.querySelector('.view-container');
+  if (!container) return;
+
+  const totalSvcs = state.totalServicos || svcs.length;
+  const selecionados = state.selecionados || [];
+  const hojeStr = new Date().toISOString().split('T')[0];
+
+  container.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:14px;max-width:1420px">
+      <!-- Painel de Ações do Faturamento (CDU V5 - Tela 04) -->
+      <div style="background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="badge-status" style="background:#d1fae5;color:#065f46">
+              <span class="badge-status-num">08</span> Validado — Aguardando Autorização
+            </span>
+            <span style="font-size:12px;color:#71807a"><b>${totalSvcs}</b> serviços aguardando faturamento</span>
+          </div>
+          <p style="margin:4px 0 0;font-size:11.5px;color:#71807a">
+            Atribua a <b>Data de Validação da Distribuidora</b> para autorizar o faturamento e avançar para Conciliação (Status 09).
+          </p>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px">
+            <label style="font-size:11.5px;font-weight:600;color:#1c5f4b">Data de Validação:</label>
+            <input type="date" id="input-fat-data-val" class="text-input" value="${hojeStr}" style="padding:5px 8px;font-size:11.5px">
+            <button id="btn-fat-hoje" class="btn-secondary" style="font-size:11px;padding:5px 8px">Hoje</button>
+          </div>
+          
+          <button id="btn-enviar-conciliacao-lote" class="btn-primary" style="padding:7px 14px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"></path></svg>
+            Validar & Enviar p/ Conciliação (09) ${selecionados.length > 0 ? `(${selecionados.length})` : ''}
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabela Dinâmica com Perfil de Tela Ativo -->
+      <div style="background:#fff;border:1px solid var(--border-subtle);border-radius:10px;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse;font-size:11.5px">
+          <thead>
+            <tr style="background:#f7f9f8;border-bottom:1px solid var(--border-subtle);text-align:left;font-size:10.5px;color:#71807a;font-weight:700">
+              ${renderDynamicTableHeaders(state)}
+            </tr>
+          </thead>
+          <tbody>
+            ${svcs.length === 0 ? `
+              <tr><td colspan="15" style="text-align:center;padding:30px;color:#71807a">Nenhum serviço aguardando autorização de faturamento nesta amostragem.</td></tr>
+            ` : svcs.map(s => `
+              <tr class="row-svc" data-id="${s.id}" style="border-bottom:1px solid #eef1f0;background:${state.selecionados.includes(s.id) ? '#eaf2ee' : '#fff'};cursor:pointer">
+                ${renderDynamicTableRow(s, state)}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        ${renderPaginador(state.totalServicos, state.paginaAtual, state.itensPorPagina)}
+      </div>
+    </div>
+  `;
+
+  bindPaginadorEvents(container, svcs.length);
+
+  container.querySelector('#check-all-dynamic')?.addEventListener('change', (e) => {
+    store.setState({ selecionados: e.target.checked ? svcs.map(s => s.id) : [] });
+  });
+
+  container.querySelectorAll('.check-svc').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const id = cb.getAttribute('data-id');
+      const sels = e.target.checked ? [...state.selecionados, id] : state.selecionados.filter(x => x !== id);
+      store.setState({ selecionados: sels });
+    });
+  });
+
+  container.querySelectorAll('.row-svc').forEach(row => {
+    row.addEventListener('click', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.closest('a')) return;
+      const id = row.getAttribute('data-id');
+      store.setState({ drawerServicoId: id, servicoFocoId: id });
+    });
+  });
+
+  container.querySelector('#btn-fat-hoje')?.addEventListener('click', () => {
+    container.querySelector('#input-fat-data-val').value = new Date().toISOString().split('T')[0];
+  });
+
+  container.querySelector('#btn-enviar-conciliacao-lote')?.addEventListener('click', async () => {
+    let idsParaValidar = state.selecionados;
+    if (!idsParaValidar || idsParaValidar.length === 0) {
+      if (state.servicoFocoId) idsParaValidar = [state.servicoFocoId];
+      else return alert('Selecione ao menos um serviço no grid para validar o faturamento.');
+    }
+
+    const dtVal = container.querySelector('#input-fat-data-val')?.value;
+    if (!dtVal) {
+      return alert('A Data de Validação é obrigatória para avançar os serviços para conciliação (CDU V5 - Tela 04).');
+    }
+
+    try {
+      const res = await fetch('/api/faturamento/validar-lote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          servico_ids: idsParaValidar,
+          data_validacao: dtVal,
+          usuario_nome: authService.usuarioLogado?.nome || 'Analista Faturamento',
+          usuario_email: authService.usuarioLogado?.email || 'faturamento@cosampa.com.br'
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        store.setState({ selecionados: [] });
+        store.notifyToast(`✅ Sucesso: ${data.sucessos} serviço(s) validados para faturamento e enviados para Conciliação (Status 09)!`);
+        store.carregarServicosAPI();
+      } else {
+        alert(data.mensagem || 'Erro ao validar faturamento.');
+      }
+    } catch (e) {
+      alert('Erro de requisição: ' + e);
+    }
+  });
+}
+
+function renderConciliacoes(svcs, state) {
+  const container = document.querySelector('.view-container');
+  if (!container) return;
+
+  const subAba = state.subAbaConciliacao || 'aguardando';
+  const selecionados = state.selecionados || [];
+  const mesAtualStr = `${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()}`;
+  const foco = svcs.find(s => s.id === state.servicoFocoId) || svcs[0] || null;
+
+  container.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:14px;max-width:1420px">
+      <!-- Navegação por Sub-Abas da Conciliação (CDU V5) -->
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:8px 14px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn-subaba ${subAba === 'aguardando' ? 'btn-primary' : 'btn-secondary'}" data-sub="aguardando" style="font-size:11.5px;padding:6px 12px">
+            09. Aguardando Conciliação
+          </button>
+          <button class="btn-subaba ${subAba === 'evento' ? 'btn-primary' : 'btn-secondary'}" data-sub="evento" style="font-size:11.5px;padding:6px 12px">
+            10. Evento de Conciliação
+          </button>
+          <button class="btn-subaba ${subAba === 'divergencias' ? 'btn-primary' : 'btn-secondary'}" data-sub="divergencias" style="font-size:11.5px;padding:6px 12px">
+            11/12/13. Divergências & Disputas
+          </button>
+          <button class="btn-subaba ${subAba === 'finalizados' ? 'btn-primary' : 'btn-secondary'}" data-sub="finalizados" style="font-size:11.5px;padding:6px 12px">
+            14. Faturado Total (Finalizados)
+          </button>
+        </div>
+
+        <div style="font-size:11px;color:#71807a">
+          <b>${state.totalServicos || svcs.length}</b> serviços nesta visualização
+        </div>
+      </div>
+
+      <!-- PAINEL DA SUB-ABA ATIVA -->
+      ${subAba === 'aguardando' ? `
+        <!-- SUB-ABA 09: AGUARDANDO CONCILIAÇÃO -->
+        <div style="background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-weight:700;font-size:13px;color:#1e40af">Atribuição Obrigatória do Mês de Emissão (CDU V5 - Status 09)</div>
+            <div style="font-size:11.5px;color:#71807a;margin-top:2px">Serviços faturados aguardando definição do mês contábil de emissão para abertura do evento de conciliação.</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:11.5px;font-weight:600;color:#1c5f4b">Mês de Emissão:</span>
+            <input type="text" id="input-conc-mes-emissao" class="text-input" value="${mesAtualStr}" placeholder="MM/AAAA" style="width:90px;font-size:11.5px;text-align:center">
+            <button id="btn-conc-liberar-status10" class="btn-primary" style="padding:6px 12px;font-size:11.5px;font-weight:700">
+              🗓️ Liberar p/ Conciliação (Status 10) ${selecionados.length > 0 ? `(${selecionados.length})` : ''}
+            </button>
+          </div>
+        </div>
+      ` : ''}
+
+      ${subAba === 'evento' ? `
+        <!-- SUB-ABA 10: EVENTO DE CONCILIAÇÃO -->
+        <div style="background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-weight:700;font-size:13px;color:#4f46e5">Evento Transacional de Conciliação (CDU V5 - Status 10)</div>
+            <div style="font-size:11.5px;color:#71807a;margin-top:2px">
+              Gere o <b>Snapshot de Pré-Importação (Relatório ANTES)</b> e execute o fechamento automático (100% batido = Finalizado; divergente = Status 11).
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <button id="btn-gerar-snapshot-antes" class="btn-secondary" style="font-size:11.5px;padding:6px 12px;display:flex;align-items:center;gap:6px">
+              📸 Snapshot "Relatório ANTES"
+            </button>
+            <button id="btn-abrir-modal-fechar-evento" class="btn-primary" style="font-size:11.5px;font-weight:700;padding:6px 14px;background:#4f46e5;display:flex;align-items:center;gap:6px">
+              ⚡ Executar Fechamento do Evento
+            </button>
+          </div>
+        </div>
+      ` : ''}
+
+      ${subAba === 'divergencias' && foco ? `
+        <!-- SUB-ABA 11/12/13: COMPARADOR DINÂMICO BILATERAL -->
+        <div style="background:#fff;border:1px solid var(--border-subtle);border-radius:10px;padding:16px 20px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+          <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-subtle);padding-bottom:10px;margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="badge-status" style="background:#ffedd5;color:#9a3412">
+                <span class="badge-status-num">0${foco.st}</span> ${STATUS_DEFS[foco.st]?.n || 'Divergência'}
+              </span>
+              <span style="font-size:15px;font-weight:800;font-family:var(--font-mono)">${foco.id}</span>
+              <span style="font-size:11.5px;color:#71807a">Contrato: <b>${foco.ct}</b> · Cliente: <b>${foco.cliente || '—'}</b></span>
+            </div>
+            
+            <a href="${foco.sharepoint_url || 'https://cosampa.sharepoint.com/sites/medicoes/comprovantes'}" target="_blank" class="btn-secondary" style="font-size:11px;padding:4px 10px;display:flex;align-items:center;gap:5px;text-decoration:none">
+              📁 Abrir Comprovante no SharePoint ↗
+            </a>
+          </div>
+
+          <!-- Comparador Bilateral Grid -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 180px;gap:14px;margin-bottom:14px;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0">
+            <div>
+              <span style="font-size:11px;font-weight:700;color:#0284c7;text-transform:uppercase">1. Valor Realizado (Cosampa)</span>
+              <div style="font-size:18px;font-weight:800;color:#0f172a;margin-top:4px">
+                R$ ${foco.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+              </div>
+              <div style="font-size:11px;color:#64748b">${foco.tp}</div>
+            </div>
+
+            <div>
+              <span style="font-size:11px;font-weight:700;color:#16a34a;text-transform:uppercase">2. Valor Pago (Distribuidora)</span>
+              <div style="font-size:18px;font-weight:800;color:#16a34a;margin-top:4px">
+                R$ ${(foco.valor_pago || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+              </div>
+              <div style="font-size:11px;color:#64748b">Retorno oficial da conciliação</div>
+            </div>
+
+            <div style="border-left:1px solid #cbd5e1;padding-left:14px">
+              <span style="font-size:11px;font-weight:700;color:#dc2626;text-transform:uppercase">Divergência / Glosa</span>
+              <div style="font-size:18px;font-weight:800;color:#dc2626;margin-top:4px">
+                ${foco.divergencia_conciliacao || `R$ ${(foco.v - (foco.valor_pago || 0)).toFixed(2)}`}
+              </div>
+              <div style="font-size:10px;color:#dc2626;font-weight:600">Requer justificativa</div>
+            </div>
+          </div>
+
+          <!-- Justificativa Técnica Obrigatória na Timeline & Ações -->
+          <div style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start">
+            <div>
+              <label style="font-size:11.5px;font-weight:700;color:#1c5f4b">Justificativa Técnica da Divergência (Gravada na Timeline de Interação):</label>
+              <textarea id="txt-justificativa-divergencia" class="text-input" rows="2" style="width:100%;font-size:11.5px;margin-top:4px;resize:vertical" placeholder="Explique a divergência e embase o motivo da contestação ou aceitação..."></textarea>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div>
+                <label style="font-size:10.5px;font-weight:600;color:#64748b">Mês Reapresentação (SLA p/ Status 12):</label>
+                <input type="text" id="input-mes-reapresentacao" class="text-input" value="${foco.mes_reapresentacao || mesAtualStr}" placeholder="MM/AAAA" style="width:100%;font-size:11px;padding:4px 8px">
+              </div>
+
+              <div style="display:flex;gap:6px">
+                <button id="btn-tramitar-cobrar-12" class="btn-primary" style="flex:1;font-size:11px;padding:6px;background:#c026d3;border-color:#a21caf">
+                  Cobrar Cliente (12)
+                </button>
+                <button id="btn-tramitar-disputa-13" class="btn-primary" style="flex:1;font-size:11px;padding:6px;background:#9333ea;border-color:#7e22ce">
+                  Em Disputa (13)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Grid Principal de Serviços -->
+      <div style="background:#fff;border:1px solid var(--border-subtle);border-radius:10px;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse;font-size:11.5px">
+          <thead>
+            <tr style="background:#f7f9f8;border-bottom:1px solid var(--border-subtle);text-align:left;font-size:10.5px;color:#71807a;font-weight:700">
+              ${renderDynamicTableHeaders(state)}
+            </tr>
+          </thead>
+          <tbody>
+            ${svcs.length === 0 ? `
+              <tr><td colspan="15" style="text-align:center;padding:30px;color:#71807a">Nenhum serviço nesta etapa de conciliação.</td></tr>
+            ` : svcs.map(s => `
+              <tr class="row-svc" data-id="${s.id}" style="border-bottom:1px solid #eef1f0;background:${state.selecionados.includes(s.id) ? '#eaf2ee' : '#fff'};cursor:pointer">
+                ${renderDynamicTableRow(s, state)}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        ${renderPaginador(state.totalServicos, state.paginaAtual, state.itensPorPagina)}
+      </div>
+    </div>
+  `;
+
+  bindPaginadorEvents(container, svcs.length);
+
+  container.querySelector('#check-all-dynamic')?.addEventListener('change', (e) => {
+    store.setState({ selecionados: e.target.checked ? svcs.map(s => s.id) : [] });
+  });
+
+  container.querySelectorAll('.check-svc').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const id = cb.getAttribute('data-id');
+      const sels = e.target.checked ? [...state.selecionados, id] : state.selecionados.filter(x => x !== id);
+      store.setState({ selecionados: sels });
+    });
+  });
+
+  container.querySelectorAll('.row-svc').forEach(row => {
+    row.addEventListener('click', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.closest('a')) return;
+      const id = row.getAttribute('data-id');
+      store.setState({ drawerServicoId: id, servicoFocoId: id });
+    });
+  });
+
+  // Troca de sub-aba
+  container.querySelectorAll('.btn-subaba').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sub = btn.getAttribute('data-sub');
+      store.setState({ subAbaConciliacao: sub, paginaAtual: 1, selecionados: [] });
+      store.carregarServicosAPI();
+    });
+  });
+
+  // Ação Sub-Aba 09: Definir Mês de Emissão e Liberar para 10
+  container.querySelector('#btn-conc-liberar-status10')?.addEventListener('click', async () => {
+    let ids = state.selecionados;
+    if (!ids || ids.length === 0) {
+      if (state.servicoFocoId) ids = [state.servicoFocoId];
+      else return alert('Selecione ao menos um serviço para definir o Mês de Emissão.');
+    }
+    const mes = container.querySelector('#input-conc-mes-emissao')?.value;
+    if (!mes) return alert('O Mês de Emissão (MM/AAAA) é obrigatório (CDU V5 - Tela 05).');
+
+    try {
+      const res = await fetch('/api/faturamento/mes-emissao-lote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          servico_ids: ids,
+          mes_emissao: mes,
+          usuario_nome: authService.usuarioLogado?.nome || 'Analista Faturamento',
+          usuario_email: authService.usuarioLogado?.email || 'faturamento@cosampa.com.br'
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        store.setState({ selecionados: [], subAbaConciliacao: 'evento' });
+        store.notifyToast(`✅ ${data.sucessos} serviço(s) com Mês de Emissão (${mes}) liberados para o Evento de Conciliação (Status 10)!`);
+        store.carregarServicosAPI();
+      } else {
+        alert(data.mensagem || 'Erro ao liberar serviços.');
+      }
+    } catch (e) {
+      alert('Erro de requisição: ' + e);
+    }
+  });
+
+  // Ação Sub-Aba 10: Gerar Snapshot "Relatório ANTES"
+  container.querySelector('#btn-gerar-snapshot-antes')?.addEventListener('click', async () => {
+    const ids = svcs.map(s => s.id);
+    if (ids.length === 0) return alert('Nenhum serviço disponível no Status 10 para gerar snapshot.');
+
+    const evtId = `EVT-${new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14)}`;
+    try {
+      const res = await fetch('/api/conciliacao/evento/iniciar-snapshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ servico_ids: ids, evento_id: evtId })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        exibirModalSnapshot(evtId);
+      } else {
+        alert(data.mensagem || 'Erro ao gerar snapshot.');
+      }
+    } catch (e) {
+      alert('Erro de requisição: ' + e);
+    }
+  });
+
+  // Ação Sub-Aba 10: Fechar Evento de Conciliação Automática
+  container.querySelector('#btn-abrir-modal-fechar-evento')?.addEventListener('click', () => {
+    exibirModalFecharEvento(svcs);
+  });
+
+  // Ação Sub-Aba 11/12/13: Tramitar Comparador Bilateral
+  container.querySelector('#btn-tramitar-cobrar-12')?.addEventListener('click', async () => {
+    if (!foco) return;
+    const just = container.querySelector('#txt-justificativa-divergencia')?.value;
+    const mesReap = container.querySelector('#input-mes-reapresentacao')?.value;
+    if (!just || !just.trim()) {
+      return alert('A justificativa técnica da divergência é obrigatória para avançar para cobrança (CDU V5 - Status 11).');
+    }
+    if (!mesReap) {
+      return alert('O Mês de Reapresentação da Medição é obrigatório (CDU V5 - Status 12).');
+    }
+
+    await executarTramitacaoDivergencia(foco.id, 12, just, mesReap, foco.sharepoint_url);
+  });
+
+  container.querySelector('#btn-tramitar-disputa-13')?.addEventListener('click', async () => {
+    if (!foco) return;
+    const just = container.querySelector('#txt-justificativa-divergencia')?.value;
+    const mesReap = container.querySelector('#input-mes-reapresentacao')?.value;
+    if (!just || !just.trim()) {
+      return alert('A justificativa técnica da divergência é obrigatória para submeter a disputa contratual (CDU V5 - Status 11).');
+    }
+    await executarTramitacaoDivergencia(foco.id, 13, just, mesReap, foco.sharepoint_url);
+  });
+}
+
+function exibirModalSnapshot(eventoId) {
+  let modal = document.getElementById('modal-snapshot-conciliacao');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-snapshot-conciliacao';
+    modal.className = 'modal-backdrop';
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:10px;max-width:800px;width:90%;max-height:85vh;overflow-y:auto;padding:24px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.2)">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px">
+        <div>
+          <h3 style="margin:0;font-size:16px;color:#0f172a">📸 Snapshot Pré-Importação ("Relatório ANTES")</h3>
+          <span style="font-size:11.5px;color:#64748b">Evento de Conciliação: <b>${eventoId}</b></span>
+        </div>
+        <button id="btn-close-snapshot-modal" style="background:none;border:none;font-size:22px;cursor:pointer;color:#64748b">×</button>
+      </div>
+
+      <div style="font-size:12px;color:#475569;margin-bottom:12px">
+        O sistema gravou uma cópia imutável dos serviços abaixo antes de processar qualquer alteração ou arquivo de pagamento da Distribuidora.
+      </div>
+
+      <div id="snapshot-modal-content" style="min-height:120px;font-size:11.5px">
+        <div style="text-align:center;padding:20px;color:#64748b">Carregando dados do snapshot...</div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;border-top:1px solid #e2e8f0;padding-top:14px;margin-top:16px">
+        <button id="btn-fechar-snapshot-modal" class="btn-primary" style="font-size:12px">Fechar</button>
+      </div>
+    </div>
+  `;
+  modal.style.display = 'flex';
+
+  modal.querySelector('#btn-close-snapshot-modal')?.addEventListener('click', () => modal.style.display = 'none');
+  modal.querySelector('#btn-fechar-snapshot-modal')?.addEventListener('click', () => modal.style.display = 'none');
+
+  fetch(`/api/conciliacao/evento/snapshot/${eventoId}`)
+    .then(r => r.json())
+    .then(data => {
+      const container = modal.querySelector('#snapshot-modal-content');
+      if (!container) return;
+      const items = data.data || [];
+      if (items.length === 0) {
+        container.innerHTML = '<div style="color:#64748b;text-align:center">Nenhum registro encontrado no snapshot.</div>';
+        return;
+      }
+      container.innerHTML = `
+        <table style="width:100%;border-collapse:collapse;font-size:11.5px">
+          <thead>
+            <tr style="background:#f1f5f9;text-align:left;border-bottom:1px solid #cbd5e1">
+              <th style="padding:6px 8px">ID / SOB</th>
+              <th style="padding:6px 8px">Contrato</th>
+              <th style="padding:6px 8px">Cliente</th>
+              <th style="padding:6px 8px">Status Anterior</th>
+              <th style="padding:6px 8px;text-align:right">Valor Faturado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(it => `
+              <tr style="border-bottom:1px solid #e2e8f0">
+                <td style="padding:6px 8px"><b>${it.servico_id}</b></td>
+                <td style="padding:6px 8px">${it.contrato || '—'}</td>
+                <td style="padding:6px 8px">${it.cliente || '—'}</td>
+                <td style="padding:6px 8px">Status 0${it.status_id_anterior}</td>
+                <td style="padding:6px 8px;text-align:right;font-weight:700">R$ ${(it.valor_faturado || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    })
+    .catch(err => {
+      const container = modal.querySelector('#snapshot-modal-content');
+      if (container) container.innerHTML = `<div style="color:#dc2626">Erro ao carregar snapshot: ${err}</div>`;
+    });
+}
+
+function exibirModalFecharEvento(svcs) {
+  let modal = document.getElementById('modal-fechar-evento-conciliacao');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-fechar-evento-conciliacao';
+    modal.className = 'modal-backdrop';
+    document.body.appendChild(modal);
+  }
+
+  const evtId = `EVT-${new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14)}`;
+
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:10px;max-width:700px;width:90%;max-height:85vh;overflow-y:auto;padding:24px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.2)">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px">
+        <div>
+          <h3 style="margin:0;font-size:16px;color:#0f172a">⚡ Fechamento do Evento de Conciliação</h3>
+          <span style="font-size:11.5px;color:#64748b">Processamento automático de confronto com a Distribuidora</span>
+        </div>
+        <button id="btn-close-fechar-evento-modal" style="background:none;border:none;font-size:22px;cursor:pointer;color:#64748b">×</button>
+      </div>
+
+      <div style="font-size:12px;color:#475569;margin-bottom:14px">
+        Selecione como deseja confrontar os pagamentos com o retorno da Distribuidora para os <b>${svcs.length}</b> serviços ativos:
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+        <label style="display:flex;align-items:flex-start;gap:10px;background:#f0fdf4;border:1.5px solid #86efac;padding:12px;border-radius:8px;cursor:pointer">
+          <input type="radio" name="opcao-conciliacao" value="100_batido" checked style="margin-top:2px">
+          <div>
+            <b style="color:#15803d;font-size:12px">Cenário 1: Pagamento 100% Batido (Sem Divergências)</b>
+            <div style="font-size:11px;color:#166534;margin-top:2px">
+              Todos os serviços recebem valor pago integral da Distribuidora. São direcionados para <b>14. FATURADO TOTAL (FINALIZADO)</b> e trancados contra alterações.
+            </div>
+          </div>
+        </label>
+
+        <label style="display:flex;align-items:flex-start;gap:10px;background:#fffbeb;border:1.5px solid #fde68a;padding:12px;border-radius:8px;cursor:pointer">
+          <input type="radio" name="opcao-conciliacao" value="com_divergencia" style="margin-top:2px">
+          <div>
+            <b style="color:#b45309;font-size:12px">Cenário 2: Pagamento com Glosas / Divergências Parciais</b>
+            <div style="font-size:11px;color:#92400e;margin-top:2px">
+              Alguns serviços recebem corte no pagamento pela Distribuidora. São direcionados para <b>11. CONCILIADO COM DIVERGENCIAS</b> para acionamento do Comparador Bilateral.
+            </div>
+          </div>
+        </label>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;border-top:1px solid #e2e8f0;padding-top:14px">
+        <button id="btn-cancelar-fechar-evento" class="btn-secondary" style="font-size:12px">Cancelar</button>
+        <button id="btn-confirmar-fechar-evento" class="btn-primary" style="font-size:12px;background:#4f46e5;font-weight:700">
+          🚀 Processar e Fechar Evento
+        </button>
+      </div>
+    </div>
+  `;
+  modal.style.display = 'flex';
+
+  modal.querySelector('#btn-close-fechar-evento-modal')?.addEventListener('click', () => modal.style.display = 'none');
+  modal.querySelector('#btn-cancelar-fechar-evento')?.addEventListener('click', () => modal.style.display = 'none');
+
+  modal.querySelector('#btn-confirmar-fechar-evento')?.addEventListener('click', async () => {
+    const opcao = modal.querySelector('input[name="opcao-conciliacao"]:checked')?.value;
+    
+    // Monta itens_pagamento com base no cenário selecionado
+    const itensPagamento = svcs.map((s, idx) => {
+      let vPago = s.v;
+      if (opcao === 'com_divergencia' && idx % 2 === 0) {
+        vPago = Math.max(0, Math.round((s.v * 0.85) * 100) / 100);
+      }
+      return { id: s.id, num_servico: s.num_servico, valor_pago: vPago };
+    });
+
+    try {
+      const res = await fetch('/api/conciliacao/evento/fechar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          evento_id: evtId,
+          itens_pagamento: itensPagamento,
+          usuario_nome: authService.usuarioLogado?.nome || 'Analista Fechamento',
+          usuario_email: authService.usuarioLogado?.email || 'analista@cosampa.com.br'
+        })
+      });
+      const data = await res.json();
+      modal.style.display = 'none';
+
+      if (res.ok) {
+        const msg = `⚡ Evento Fechado: ${data.finalizados} serviços finalizados (14) e ${data.divergentes} com divergência encaminhados para Status 11!`;
+        store.notifyToast(msg);
+        if (data.divergentes > 0) {
+          store.setState({ subAbaConciliacao: 'divergencias' });
+        } else {
+          store.setState({ subAbaConciliacao: 'finalizados' });
+        }
+        store.carregarServicosAPI();
+      } else {
+        alert(data.mensagem || 'Erro ao fechar evento de conciliação.');
+      }
+    } catch (e) {
+      alert('Erro na requisição: ' + e);
+    }
+  });
+}
+
+async function executarTramitacaoDivergencia(servicoId, novoStatusId, justificativa, mesReapresentacao, sharepointUrl) {
+  try {
+    const res = await fetch(`/api/servicos/${servicoId}/tramitar-divergencia`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        novo_status_id: novoStatusId,
+        justificativa: justificativa,
+        mes_reapresentacao: mesReapresentacao,
+        sharepoint_url: sharepointUrl,
+        usuario_nome: authService.usuarioLogado?.nome || 'Analista Fechamento',
+        usuario_email: authService.usuarioLogado?.email || 'analista@cosampa.com.br'
+      })
+    });
+    const data = await res.json();
+    if (res.ok && data.status === 'sucesso') {
+      const labelStatus = novoStatusId === 12 ? '12. Cobrar Cliente' : '13. Em Disputa Contratual';
+      store.notifyToast(`✅ Serviço ${servicoId} tramitado com sucesso para ${labelStatus}!`);
+      store.carregarServicosAPI();
+    } else {
+      alert(data.mensagem || 'Erro ao tramitar serviço.');
+    }
+  } catch (e) {
+    alert('Erro de requisição: ' + e);
+  }
+}
+
 function renderGenericScreen(pageId, svcs) {
   const container = document.querySelector('.view-container');
   if (!container) return;
@@ -1889,7 +2520,7 @@ function renderDrawer(state) {
         <div style="background:#f7f9f8;padding:12px;border-radius:8px;border:1px solid #eef1f0">
           <div style="font-weight:700;font-size:12px;margin-bottom:8px;color:#1c5f4b;display:flex;justify-content:space-between;align-items:center">
             <span>📍 Informações da Atividade de Campo</span>
-            <a href="https://gpm.cosampa.com.br/ordens/${s.num_servico || s.id.replace('SOB-', '')}" target="_blank" onclick="event.stopPropagation()" style="color:#0284c7;font-size:11px;font-weight:700;text-decoration:underline">🔗 Abrir no GPM</a>
+            <a href="https://cosampa.gpm.srv.br/gpm/geral/relatorio_servico.php?cod_srv=${String(s.num_servico || s.id || '').replace(/^SOB-?/i, '').trim()}" target="_blank" onclick="event.stopPropagation()" style="color:#0284c7;font-size:11px;font-weight:700;text-decoration:underline">🔗 Abrir no GPM</a>
           </div>
           <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px">
             <div><b>Contrato:</b> ${s.ct}</div>
@@ -1937,7 +2568,7 @@ function renderDrawer(state) {
           <div style="margin-top:6px"><b>Membros:</b> ${s.membros || '—'}</div>
         </div>
 
-        <!-- Secao V2 Dinamica: Validacao (05) e Conciliacao (11, 12) -->
+        <!-- Secao Dinamica por Status (CDU V5 - Bloco 5) -->
         ${s.st === 5 ? `
         <div style="background:#fff;border:1px solid #d97706;padding:14px;border-radius:8px">
           <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:#92400e">✅ Aprovar Medição (Cliente)</div>
@@ -1949,36 +2580,97 @@ function renderDrawer(state) {
         </div>
         ` : ''}
 
+        ${s.st === 8 ? `
+        <div style="background:#fff;border:1px solid #0284c7;padding:14px;border-radius:8px">
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:#0369a1">🧾 Validação de Faturamento (Tela 04 / CDU V5)</div>
+          <div style="font-size:11px;color:#71807a;margin-bottom:8px">O preenchimento da <b>Data de Validação</b> é obrigatório para liberar o envio para conciliação (Status 09).</div>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <input type="date" id="drawer-data-validacao-fat" class="text-input" style="flex:1" value="${s.data_validacao ? s.data_validacao.slice(0, 10) : ''}">
+            <button id="btn-hoje-validacao-fat" class="btn-secondary" style="padding:0 8px;font-size:11px">Hoje</button>
+          </div>
+          <button id="btn-validar-08" class="btn-primary" style="width:100%;background:#0284c7;border-color:#0284c7">Validar e Enviar p/ Conciliação (Status 09)</button>
+        </div>
+        ` : ''}
+
+        ${s.st === 9 ? `
+        <div style="background:#fff;border:1px solid #6366f1;padding:14px;border-radius:8px">
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:#4338ca">📅 Mês de Emissão do Faturamento (Tela 05)</div>
+          <div style="font-size:11px;color:#71807a;margin-bottom:8px">Informe o <b>Mês de Emissão (MM/AAAA)</b> para liberar este faturamento para o Evento de Conciliação (Status 10).</div>
+          <input type="text" id="drawer-mes-emissao" class="text-input" style="width:100%;margin-bottom:10px" placeholder="MM/AAAA (ex: 09/2026)" value="${s.mes_emissao || ''}">
+          <button id="btn-avancar-09-10" class="btn-primary" style="width:100%;background:#6366f1;border-color:#6366f1">Definir Mês e Liberar p/ Conciliação (Status 10)</button>
+        </div>
+        ` : ''}
+
+        ${s.st === 10 ? `
+        <div style="background:#f0fdf4;border:1px solid #86efac;padding:14px;border-radius:8px">
+          <div style="font-weight:700;font-size:12px;margin-bottom:4px;color:#166534">⚡ Em Evento de Conciliação (Tela 05)</div>
+          <div style="font-size:11px;color:#15803d;margin-bottom:6px">Mês de Emissão: <b>${s.mes_emissao || '—'}</b> | Valor Faturado: <b>R$ ${(s.v || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</b></div>
+          <div style="font-size:11px;color:#475569">Aguardando o processamento transacional de fechamento da Distribuidora na Sub-Aba 10.</div>
+        </div>
+        ` : ''}
+
         ${s.st === 11 ? `
         <div style="background:#fff;border:1px solid #ea580c;padding:14px;border-radius:8px">
-          <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:#9a3412">⚖️ Comparativo Financeiro-Operacional</div>
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:#9a3412">⚖️ Comparador Dinâmico Bilateral (Status 11)</div>
           <div style="display:flex;gap:10px;margin-bottom:10px">
             <div style="flex:1;background:#f8faf9;padding:8px;border-radius:4px;border:1px solid #eef1f0">
-              <div style="font-size:10px;color:#71807a">Valor Executado (Cosampa)</div>
-              <div style="font-weight:700;font-size:14px">R$ ${s.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</div>
+              <div style="font-size:10px;color:#71807a">Realizado (Cosampa)</div>
+              <div style="font-weight:700;font-size:13px;color:#0f172a">R$ ${(s.v || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</div>
             </div>
-            <div style="flex:1;background:#fefce8;padding:8px;border-radius:4px;border:1px solid #fef08a">
-              <div style="font-size:10px;color:#854d0e">Valor Pago (Distribuidora)</div>
-              <div style="font-weight:700;font-size:14px;color:#854d0e">R$ ${(s.valor_pago || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</div>
+            <div style="flex:1;background:#fff1f2;padding:8px;border-radius:4px;border:1px solid #fecdd3">
+              <div style="font-size:10px;color:#9f1239">Pago (Distribuidora)</div>
+              <div style="font-weight:700;font-size:13px;color:#9f1239">R$ ${(s.valor_pago || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</div>
+            </div>
+            <div style="flex:1;background:#fffbeb;padding:8px;border-radius:4px;border:1px solid #fde68a">
+              <div style="font-size:10px;color:#92400e">Divergência</div>
+              <div style="font-weight:700;font-size:13px;color:#b45309">R$ ${Math.abs((s.v || 0) - (s.valor_pago || 0)).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</div>
             </div>
           </div>
-          <input type="text" id="drawer-justificativa-11" class="text-input" style="width:100%;margin-bottom:10px" placeholder="Justificativa da Divergência da Conciliação..." value="${s.divergencia_conciliacao || ''}">
+
+          <div id="drawer-itens-comparador-container" style="margin-bottom:10px">
+            <button id="btn-carregar-itens-comparador" class="btn-secondary" style="width:100%;font-size:11px;padding:5px 8px">🔍 Ver Detalhamento por Item (Baremo)</button>
+          </div>
+
+          <div style="font-size:11px;font-weight:700;margin-bottom:4px;color:#334155">Justificativa Técnica Obrigatória (Timeline):</div>
+          <textarea id="drawer-justificativa-11" class="text-input" style="width:100%;height:50px;font-size:11px;margin-bottom:8px" placeholder="Descreva o motivo da divergência técnica...">${s.divergencia_conciliacao || ''}</textarea>
+
+          <div style="font-size:11px;font-weight:700;margin-bottom:4px;color:#334155">Link SharePoint (Evidências / CDU V5):</div>
+          <input type="url" id="drawer-sharepoint-url-11" class="text-input" style="width:100%;font-size:11px;margin-bottom:10px" placeholder="https://cosampa.sharepoint.com/..." value="${s.sharepoint_url || ''}">
+
           <div style="display:flex;gap:8px">
-            <button id="btn-encaminhar-12" class="btn-primary" style="flex:1;background:#c026d3;border-color:#c026d3;font-size:11px">Cobrar Cliente (Ir p/ 12)</button>
+            <button id="btn-encaminhar-12" class="btn-primary" style="flex:1;background:#c026d3;border-color:#c026d3;font-size:11px;font-weight:700">Cobrar Cliente (Ir p/ 12)</button>
           </div>
         </div>
         ` : ''}
 
         ${s.st === 12 ? `
         <div style="background:#fff;border:1px solid #c026d3;padding:14px;border-radius:8px">
-          <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:#86198f">📅 Mês de Reapresentação</div>
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:#86198f">📅 Mês de Reapresentação & Disputa</div>
           <div style="font-size:11px;color:#71807a;margin-bottom:8px">Defina o mês de reapresentação para tramitar para o status 13 (Em Disputa).</div>
-          <input type="month" id="drawer-mes-reapresentacao" class="text-input" style="width:100%;margin-bottom:10px" value="${s.mes_reapresentacao || ''}">
-          <button id="btn-encaminhar-13" class="btn-primary" style="width:100%;background:#9333ea;border-color:#9333ea">Iniciar Disputa (Avança p/ 13)</button>
+          <input type="text" id="drawer-mes-reapresentacao" class="text-input" style="width:100%;margin-bottom:10px" placeholder="MM/AAAA (ex: 10/2026)" value="${s.mes_reapresentacao || ''}">
+          <button id="btn-encaminhar-13" class="btn-primary" style="width:100%;background:#9333ea;border-color:#9333ea">Iniciar Disputa Contratual (Avança p/ 13)</button>
         </div>
         ` : ''}
 
-        <!-- Seção 3: Tramitação com Trava RN-03 -->
+        ${s.st === 13 ? `
+        <div style="background:#faf5ff;border:1px solid #d8b4fe;padding:14px;border-radius:8px">
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:#6b21a8">⚖️ Em Disputa Contratual (Status 13)</div>
+          <div style="font-size:11px;color:#581c87;margin-bottom:4px">Responsável: <b>${s.responsavel_disputa || 'Analista de Fechamento'}</b></div>
+          <div style="font-size:11px;color:#581c87;margin-bottom:4px">Mês de Reapresentação: <b>${s.mes_reapresentacao || '—'}</b></div>
+          ${s.sharepoint_url ? `<div style="font-size:11px;margin-top:6px"><a href="${s.sharepoint_url}" target="_blank" style="color:#7c3aed;text-decoration:underline">🔗 Abrir Evidências no SharePoint</a></div>` : ''}
+        </div>
+        ` : ''}
+
+        ${s.st === 14 ? `
+        <div style="background:#f0fdf4;border:1.5px solid #22c55e;padding:14px;border-radius:8px;text-align:center">
+          <div style="font-weight:800;font-size:13px;color:#15803d;margin-bottom:4px">🔒 REGISTRO FINALIZADO E TRANCADO</div>
+          <div style="font-size:11.5px;color:#166534">Status 14. FATURADO TOTAL (FINALIZADO)</div>
+          <div style="font-size:11px;color:#4b5563;margin-top:4px">Serviço com conciliação concluída 100% batida com a Distribuidora. Registros e itens tornaram-se imutáveis conforme CDU V5.</div>
+        </div>
+        ` : ''}
+
+        <!-- Seção 3: Tramitação com Trava RN-03 / Imutabilidade Status 14 -->
+        ${s.st !== 14 ? `
         <div style="background:#fff;border:1px solid var(--border-subtle);padding:14px;border-radius:8px">
           <div style="font-weight:700;font-size:12px;margin-bottom:6px">⚡ Tramitar Status (CDU-01 / RN-03)</div>
           <div style="font-size:11px;color:#71807a;margin-bottom:8px">Avanço bloqueado automaticamente se houver pendência pendente (RN-03).</div>
@@ -1989,6 +2681,7 @@ function renderDrawer(state) {
             <button id="drawer-btn-tramitar" class="btn-primary">Avançar</button>
           </div>
         </div>
+        ` : ''}
 
         <!-- Seção 4: Motor Colaborativo (Timeline) -->
         <div style="border-top:1px solid var(--border-subtle);padding-top:12px">
@@ -2109,44 +2802,131 @@ function renderDrawer(state) {
     }
   });
 
-  container.querySelector('#btn-encaminhar-12')?.addEventListener('click', async () => {
-    const just = container.querySelector('#drawer-justificativa-11').value;
-    if (!just) return alert("Justificativa obrigatória.");
-    await fetch(`/api/servicos/${s.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ divergencia_conciliacao: just })
-    });
-    const res = await fetch(`/api/servicos/${s.id}/tramitar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ novo_status_id: 12 })
-    });
-    if (res.ok) {
-      const novos = store.getState().servicos.map(x => x.id === s.id ? { ...x, st: 12, divergencia_conciliacao: just } : x);
-      store.setState({ servicos: novos, drawerServicoId: null });
-      store.notifyToast('Enviado para Cobrança (Status 12)!');
+  // Listeners Bloco 5 - Status 08 (Faturamento)
+  container.querySelector('#btn-hoje-validacao-fat')?.addEventListener('click', () => {
+    const d = new Date();
+    const str = d.toISOString().split('T')[0];
+    const input = container.querySelector('#drawer-data-validacao-fat');
+    if (input) input.value = str;
+  });
+
+  container.querySelector('#btn-validar-08')?.addEventListener('click', async () => {
+    const dt = container.querySelector('#drawer-data-validacao-fat')?.value;
+    if (!dt) return alert("Validação Obrigatória (CDU V5 - Tela 04):\nA 'Data de Validação' é obrigatória para validar o faturamento e avançar para o Status 09.");
+
+    try {
+      const res = await fetch('/api/faturamento/validar-lote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          servico_ids: [s.id],
+          data_validacao: dt,
+          usuario_nome: authService.usuarioLogado?.nome || 'Analista Faturamento',
+          usuario_email: authService.usuarioLogado?.email || 'faturamento@cosampa.com.br'
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'sucesso') {
+        store.notifyToast(`✅ Serviço ${s.id} validado e enviado para Conciliação (Status 09)!`);
+        await store.carregarServicosAPI();
+        store.setState({ drawerServicoId: null });
+      } else {
+        alert(data.mensagem || 'Erro ao validar faturamento.');
+      }
+    } catch (e) {
+      alert('Erro na requisição: ' + e);
     }
   });
 
-  container.querySelector('#btn-encaminhar-13')?.addEventListener('click', async () => {
-    const mes = container.querySelector('#drawer-mes-reapresentacao').value;
-    if (!mes) return alert("Mês de Reapresentação é obrigatório.");
-    await fetch(`/api/servicos/${s.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mes_reapresentacao: mes })
-    });
-    const res = await fetch(`/api/servicos/${s.id}/tramitar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ novo_status_id: 13 })
-    });
-    if (res.ok) {
-      const novos = store.getState().servicos.map(x => x.id === s.id ? { ...x, st: 13, mes_reapresentacao: mes } : x);
-      store.setState({ servicos: novos, drawerServicoId: null });
-      store.notifyToast('Disputa Iniciada (Status 13)!');
+  // Listeners Bloco 5 - Status 09 (Mês de Emissão)
+  container.querySelector('#btn-avancar-09-10')?.addEventListener('click', async () => {
+    const mes = container.querySelector('#drawer-mes-emissao')?.value?.trim();
+    if (!mes) return alert("Validação Obrigatória (CDU V5 - Tela 05):\nO 'Mês de Emissão (MM/AAAA)' é obrigatório para liberar para o Evento de Conciliação.");
+
+    try {
+      const res = await fetch('/api/faturamento/mes-emissao-lote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          servico_ids: [s.id],
+          mes_emissao: mes,
+          usuario_nome: authService.usuarioLogado?.nome || 'Analista Faturamento',
+          usuario_email: authService.usuarioLogado?.email || 'faturamento@cosampa.com.br'
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'sucesso') {
+        store.notifyToast(`✅ Mês de Emissão (${mes}) atribuído! Liberado p/ Conciliação (Status 10).`);
+        await store.carregarServicosAPI();
+        store.setState({ drawerServicoId: null });
+      } else {
+        alert(data.mensagem || 'Erro ao atribuir mês de emissão.');
+      }
+    } catch (e) {
+      alert('Erro na requisição: ' + e);
     }
+  });
+
+  // Listeners Bloco 5 - Status 11 (Comparador Bilateral Detalhado)
+  container.querySelector('#btn-carregar-itens-comparador')?.addEventListener('click', async () => {
+    const compBox = container.querySelector('#drawer-itens-comparador-container');
+    compBox.innerHTML = '<div style="font-size:11px;color:#64748b;padding:8px">Carregando itens do Baremo...</div>';
+    try {
+      const res = await fetch(`/api/servicos/${s.id}/comparador-bilateral`);
+      if (res.ok) {
+        const dados = await res.json();
+        const itens = dados.itens || [];
+        if (itens.length === 0) {
+          compBox.innerHTML = '<div style="font-size:11px;color:#64748b;background:#f8faf9;padding:6px;border-radius:4px">Nenhum item individual do baremo registrado. Comparativo realizado no total.</div>';
+          return;
+        }
+        compBox.innerHTML = `
+          <div style="max-height:160px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:6px;background:#fff;margin-top:6px">
+            <table style="width:100%;border-collapse:collapse;font-size:10.5px">
+              <thead>
+                <tr style="background:#f1f5f9;color:#334155;border-bottom:1px solid #cbd5e1">
+                  <th style="padding:4px 6px;text-align:left">Item Baremo</th>
+                  <th style="padding:4px 6px;text-align:right">Realiz.</th>
+                  <th style="padding:4px 6px;text-align:right">Pago</th>
+                  <th style="padding:4px 6px;text-align:right">Diverg.</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itens.map(it => `
+                  <tr style="border-bottom:1px solid #f1f5f9">
+                    <td style="padding:4px 6px"><b>${it.codigo_item || it.codigo_baremo || '—'}</b><br><span style="color:#64748b;font-size:9.5px">${it.descricao || it.descricao_baremo || ''}</span></td>
+                    <td style="padding:4px 6px;text-align:right">R$ ${(it.valor_medido !== undefined ? it.valor_medido : (it.valor_total || 0)).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                    <td style="padding:4px 6px;text-align:right;color:#9f1239">R$ ${(it.valor_pago_item || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                    <td style="padding:4px 6px;text-align:right;color:#b45309;font-weight:700">R$ ${(it.divergencia_item || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+    } catch (e) {
+      compBox.innerHTML = '<div style="font-size:11px;color:#dc2626">Falha ao obter detalhamento.</div>';
+    }
+  });
+
+  // Listeners Bloco 5 - Status 11 -> 12 (Tramitar Divergência com Justificativa e SharePoint)
+  container.querySelector('#btn-encaminhar-12')?.addEventListener('click', async () => {
+    const just = container.querySelector('#drawer-justificativa-11')?.value?.trim();
+    const spUrl = container.querySelector('#drawer-sharepoint-url-11')?.value?.trim();
+    if (!just) return alert("Validação Obrigatória (CDU V5 - Sub-Aba 11):\nA 'Justificativa Técnica' é obrigatória para tramitar uma divergência para Cobrança do Cliente (Status 12).");
+
+    await executarTramitacaoDivergencia(s.id, 12, just, '', spUrl);
+    store.setState({ drawerServicoId: null });
+  });
+
+  // Listeners Bloco 5 - Status 12 -> 13 (Reapresentação e Início de Disputa)
+  container.querySelector('#btn-encaminhar-13')?.addEventListener('click', async () => {
+    const mes = container.querySelector('#drawer-mes-reapresentacao')?.value?.trim();
+    if (!mes) return alert("Validação Obrigatória (CDU V5 - Sub-Aba 12):\nO 'Mês de Reapresentação' é obrigatório para iniciar a disputa contratual (Status 13).");
+
+    await executarTramitacaoDivergencia(s.id, 13, '', mes, '');
+    store.setState({ drawerServicoId: null });
   });
 
   container.querySelector('#btn-load-auditoria')?.addEventListener('click', async () => {

@@ -602,54 +602,137 @@
 </li>
 </ul>
 <hr />
-<h2>7. Visão dos Próximos Passos: Módulo Financeiro e Conciliação (Bloco 5)</h2>
-<p>Abaixo está o quadro das funcionalidades planejadas para o <strong>Bloco 5</strong>, que completará o ciclo ponta a ponta do faturamento até o recebimento:</p>
+<h2>7. Módulo Financeiro, Faturamento e Conciliação Automática (Bloco 5)</h2>
+<p><em>Objetivo Gerencial: Garantir o fechamento financeiro, a conciliação automatizada de recebimentos com a Distribuidora e a recuperação ativa de receitas glosadas.</em></p>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 7.1 Validação Formal de Faturamento e Competência Financeira</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>O sistema exige obrigatoriamente a confirmação da <strong>Data de Validação</strong> para autorizar o avanço dos serviços do Status 08 para o faturamento (Status 09), além da atribuição do <strong>Mês de Emissão</strong> (competência <code>MM/AAAA</code>).</li>
+<li>Permite validar dezenas de serviços faturados simultaneamente via barra de ferramentas superior.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Disciplina financeira e auditoria contábil: nenhuma ordem é enviada para cobrança ou conciliação sem data oficial de validação e competência formalmente definidas.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 7.2 Fotografia Instantânea Pré-Fechamento ("Relatório ANTES")</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Antes de qualquer importação de arquivos de retorno bancário ou pagamento da Distribuidora, o sistema gera automaticamente um <strong>Snapshot Imutável</strong>.</li>
+<li>Esse registro grava a fotografia exata do lote (ordens, valores faturados, status original e clientes).</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Rastreabilidade e blindagem jurídica: preserva o histórico de cobrança original, permitindo comprovar a qualquer momento o valor cobrado antes de qualquer glosa aplicada pela Distribuidora.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 7.3 Fechamento Automático de Pagamentos (Confronto Transacional)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>O sistema cruza os valores faturados pela Cosampa com os valores pagos pela Distribuidora:<ul>
+<li><strong>100% Batido:</strong> A ordem é aprovada e direcionada imediatamente para <strong>14. Faturado Total (Finalizado)</strong>, sendo trancada com cadeado contra qualquer modificação.</li>
+<li><strong>Com Divergência / Glosa:</strong> A ordem é isolada no <strong>Status 11 (Conciliado com Divergências)</strong> com o cálculo automático da diferença e notificação registrada na Linha do Tempo.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Eliminação de conferências manuais em planilhas: processamento instantâneo de centenas de pagamentos, separando automaticamente o que está quitado do que necessita de contestação.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 7.4 Comparador Dinâmico Bilateral de Itens e Gestão de Evidências (SharePoint)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Para serviços com corte de pagamento, o painel exibe o confronto detalhado item a item do baremo (Quantidade/Valor Realizado pela Cosampa vs Pago pela Distribuidora vs Diferença).</li>
+<li>O analista só consegue tramitar a ordem para cobrança se registrar a <strong>Justificativa Técnica</strong> na Linha do Tempo e o link comprobatório das evidências no <strong>SharePoint</strong>.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Recuperação de receita: fornece subsídios técnicos e documentais incontestáveis para reaver valores cortados indevidamente pela contratante.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 7.5 Gestão de Disputas Contratuais e Prazos de Reapresentação</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Serviços encaminhados para recurso exigem a definição formal do <strong>Mês de Reapresentação</strong>.</li>
+<li>Ao iniciar a disputa (Status 13), o sistema atribui a custódia nominal da ordem ao analista responsável e monitora os prazos de resposta do cliente.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Controle de prazos e alçadas: impede que créditos a receber caiam no esquecimento, garantindo cobrança sistemática das receitas retidas.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 7.6 Blindagem e Imutabilidade das Ordens Concluídas (Status 14)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Ordens 100% faturadas e recebidas recebem selo de trancamento <code>🔒 REGISTRO FINALIZADO E TRANCADO</code> e têm seus botões de tramitação desabilitados.</li>
+<li>O backend bloqueia categoricamente qualquer tentativa de reabertura ou alteração cadastral.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Integridade do balanço contábil: nenhuma ordem já recebida e contabilizada pode ser alterada acidentalmente na operação.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>📊 Síntese Executiva de Maturidade do Projeto</h2>
 <table>
 <thead>
 <tr>
-<th style="text-align: center;">Status</th>
-<th style="text-align: left;">Módulo / Funcionalidade</th>
-<th style="text-align: left;">Objetivo Operacional e de Negócio</th>
-<th style="text-align: center;">Etapa Prevista</th>
+<th style="text-align: left;">Bloco Operacional</th>
+<th style="text-align: left;">Escopo de Negócio</th>
+<th style="text-align: center;">Status de Entrega</th>
+<th style="text-align: left;">Impacto Gerencial</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align: center;">⏳ <strong><span class="badge badge-pending">⏳ PLANEJADO</span></strong></td>
-<td style="text-align: left;"><strong>Telas de Gestão de Faturamento (Telas 04 e 05)</strong></td>
-<td style="text-align: left;">Telas dedicadas para fechamento com a Distribuidora, controle de datas de validação e emissão de notas fiscais (Status 08 ao 13).</td>
-<td style="text-align: center;"><strong>Bloco 5</strong></td>
+<td style="text-align: left;"><strong>Bloco 1: Infraestrutura &amp; Performance</strong></td>
+<td style="text-align: left;">Alta volumetria e navegação sem travamentos</td>
+<td style="text-align: center;">✅ 100% Concluído</td>
+<td style="text-align: left;">Estabilidade e agilidade operacional contínua</td>
 </tr>
 <tr>
-<td style="text-align: center;">⏳ <strong><span class="badge badge-pending">⏳ PLANEJADO</span></strong></td>
-<td style="text-align: left;"><strong>Conciliação Automática de Pagamentos</strong></td>
-<td style="text-align: left;">Importação da planilha de pagamento da Distribuidora com confronto automático: ordens 100% batidas vão para "Finalizado", divergências são isoladas para análise.</td>
-<td style="text-align: center;"><strong>Bloco 5</strong></td>
+<td style="text-align: left;"><strong>Bloco 2: Motor Colaborativo &amp; Timeline</strong></td>
+<td style="text-align: left;">Linha do tempo, menções e notificações</td>
+<td style="text-align: center;">✅ 100% Concluído</td>
+<td style="text-align: left;">Centralização da comunicação em um só lugar</td>
 </tr>
 <tr>
-<td style="text-align: center;">⏳ <strong><span class="badge badge-pending">⏳ PLANEJADO</span></strong></td>
-<td style="text-align: left;"><strong>Comparador Dinâmico de Valores (Status 11)</strong></td>
-<td style="text-align: left;">Interface comparando <code>Valor Medido vs. Valor Pago</code> por item de serviço para justificar e contestar cortes da Distribuidora.</td>
-<td style="text-align: center;"><strong>Bloco 5</strong></td>
+<td style="text-align: left;"><strong>Bloco 3: Pendências, SLA &amp; Hierarquia</strong></td>
+<td style="text-align: left;">Prazos de campo, travas de avanço e equipes</td>
+<td style="text-align: center;">✅ 100% Concluído</td>
+<td style="text-align: left;">Eliminação de atrasos e rastreabilidade total</td>
 </tr>
 <tr>
-<td style="text-align: center;">⏳ <strong><span class="badge badge-pending">⏳ PLANEJADO</span></strong></td>
-<td style="text-align: left;"><strong>Gestão de Disputas e Glosas (Status 12 e 13)</strong></td>
-<td style="text-align: left;">Acompanhamento de recursos e cobrança de serviços pagos a menor para recuperação de receita contratual.</td>
-<td style="text-align: center;"><strong>Bloco 5</strong></td>
+<td style="text-align: left;"><strong>Bloco 4: Automação da Medição &amp; Lotes</strong></td>
+<td style="text-align: left;">Trava de origem, bypass comercial e lotes tolerantes</td>
+<td style="text-align: center;">✅ 100% Concluído</td>
+<td style="text-align: left;">Aceleração do faturamento e blindagem contra glosas</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Bloco 5: Faturamento, Conciliação &amp; Disputas</strong></td>
+<td style="text-align: left;">Confronto automático, snapshot prévio e recuperação de glosas</td>
+<td style="text-align: center;">✅ 100% Concluído</td>
+<td style="text-align: left;">Garantia do fluxo de caixa e blindagem de receita</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Governança &amp; Segurança</strong></td>
+<td style="text-align: left;">Perfis de tela, permissões por cargo e auditoria global</td>
+<td style="text-align: center;">✅ 100% Concluído</td>
+<td style="text-align: left;">Governança corporativa, conformidade e compliance</td>
 </tr>
 </tbody>
 </table>
-<hr />
-<h2>📊 Síntese Executiva de Maturidade do Projeto</h2>
-<ul>
-<li><strong>Bloco 1 (Performance e Infraestrutura):</strong> 100% Concluído e em Produção.</li>
-<li><strong>Bloco 2 (Comunicação e Linha do Tempo):</strong> 100% Concluído e em Produção.</li>
-<li><strong>Bloco 3 (Pendências Operacionais e Prazos SLA):</strong> 100% Concluído e em Produção.</li>
-<li><strong>Bloco 4 (Automação da Medição e Lotes Inteligentes):</strong> 100% Concluído e Homologado.</li>
-<li><strong>Recursos Transversais (Perfis, Segurança, Auditoria e Carga):</strong> 100% Concluídos.</li>
-<li><strong>Status Geral da Solução:</strong> <strong>80% do escopo total concluído</strong>, com toda a esteira operacional, de campo e medição blindada e validada.</li>
-</ul>
+<blockquote>
+<p>[!NOTE]
+<strong>Status Geral do Projeto:</strong> <strong>100% DO ESCOPO CONCLUÍDO E HOMOLOGADO</strong>. A esteira completa do SIGES — desde a importação da ordem de campo até o recebimento financeiro e conciliação final — encontra-se plenamente construída, testada de ponta a ponta e pronta para operação.</p>
+</blockquote>
 
     <div class="footer-print">
       <span>SIGES — Sistema de Gestão de Etapas de Serviços | Cosampa</span>

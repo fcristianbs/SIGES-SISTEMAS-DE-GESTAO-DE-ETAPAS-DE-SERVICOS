@@ -254,10 +254,14 @@ def buscar_servicos_db(contrato="todos", tipo="todos", status_id="todos", superv
                     "sistema_faturamento": r.get("sistema_faturamento") or "",
                     "mes_medicao_inicial": r.get("mes_medicao_inicial") or "",
                     "data_primeira_validacao": str(r.get("data_primeira_validacao")) if r.get("data_primeira_validacao") else "",
+                    "data_validacao": str(r.get("data_validacao")) if r.get("data_validacao") else (str(r.get("data_primeira_validacao")) if r.get("data_primeira_validacao") else ""),
+                    "mes_emissao": r.get("mes_emissao") or "",
                     "data_programacao": str(r.get("data_programacao")) if r.get("data_programacao") else "",
                     "valor_pago": float(r.get("valor_pago_cliente") or 0.0),
                     "mes_reapresentacao": r.get("mes_reapresentacao") or "",
-                    "divergencia_conciliacao": r.get("divergencia_conciliacao") or ""
+                    "divergencia_conciliacao": r.get("divergencia_conciliacao") or "",
+                    "responsavel_disputa": r.get("responsavel_disputa") or "",
+                    "sharepoint_url": r.get("sharepoint_url") or ""
                 })
 
             return {"data": resultado, "total": total_count}
@@ -271,8 +275,9 @@ def tramitar_servico_db(servico_id, novo_status_id, usuario_nome="Analista Fecha
     """
     Tramita o status do serviço registrando Log de Auditoria (RN-01),
     aplicando o travamento rígido por pendências (RN-03),
-    a Validação Obrigatória do Sistema de Origem (CDU V5 Bloco 4)
-    e o Bypass do Fluxo Comercial (CDU V5 Bloco 4).
+    a Validação Obrigatória do Sistema de Origem (CDU V5 Bloco 4),
+    o Bypass do Fluxo Comercial (CDU V5 Bloco 4) e
+    as Validações de Faturamento e Conciliação (CDU V5 Bloco 5).
     """
     conn = get_db_connection()
     if not conn:
@@ -280,7 +285,11 @@ def tramitar_servico_db(servico_id, novo_status_id, usuario_nome="Analista Fecha
 
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT id, num_servico, status_id, contrato, tipo_servico, tipo_obra, origem_sistema FROM servicos WHERE id = %s", (servico_id,))
+            cursor.execute("""
+                SELECT id, num_servico, status_id, contrato, tipo_servico, tipo_obra, origem_sistema, 
+                       data_validacao, data_primeira_validacao, mes_emissao, mes_reapresentacao, valor, valor_pago_cliente
+                FROM servicos WHERE id = %s
+            """, (servico_id,))
             row = cursor.fetchone()
             if not row:
                 return {"status": "erro", "mensagem": "Serviço não encontrado"}
@@ -291,18 +300,65 @@ def tramitar_servico_db(servico_id, novo_status_id, usuario_nome="Analista Fecha
             tp_servico = (row.get("tipo_servico") or "").strip().upper()
             tp_obra = (row.get("tipo_obra") or "").strip().upper()
 
+            # Imutabilidade: Status 14 (FATURADO TOTAL - FINALIZADO) trancado
+            if status_atual == 14 and usuario_email != "admin@cosampa.com.br":
+                return {
+                    "status": "bloqueado",
+                    "mensagem": f"Serviço {servico_id}: Bloqueado! Este serviço já está no status FATURADO TOTAL (FINALIZADO) e é protegido contra qualquer alteração."
+                }
+
             # RN-03: Bloqueio de avanço se estiver em pendência (só permite retornar para 1 ou 3)
             if status_atual in (2, 4, 6, 7) and novo_status_id not in (1, 3):
                 return {"status": "bloqueado", "mensagem": f"Serviço {servico_id}: Bloqueado! Existem pendências ativas que impedem o avanço direto para validação/faturamento (RN-03)."}
 
             # CDU V5 - Bloco 4: Validação Obrigatória de Origem
-            # Antes de avançar da Tela 01 (status 1) para próximos status operacionais (não sendo pendência 2 ou 4)
             if status_atual == 1 and novo_status_id not in (2, 4):
                 if not origem or origem in ("NÃO VALIDADO", "PENDENTE"):
                     return {
                         "status": "bloqueado",
                         "mensagem": f"Serviço {servico_id}: Validação Obrigatória do Sistema de Origem não confirmada! É necessário definir o Sistema de Origem (Eorder, Synergia, SacBt, etc) antes de avançar."
                     }
+
+            # CDU V5 - Bloco 5: Validação da Tela 04 (Faturamento 08 -> 09)
+            if status_atual == 8 and novo_status_id == 9:
+                dt_val = row.get("data_validacao") or row.get("data_primeira_validacao")
+                if not dt_val:
+                    return {
+                        "status": "bloqueado",
+                        "mensagem": f"Serviço {servico_id}: O preenchimento da Data de Validação é obrigatório para avançar para o Faturado/Conciliação (CDU V5 - Tela 04)."
+                    }
+
+            # CDU V5 - Bloco 5: Validação da Tela 05 (Conciliação 09 -> 10)
+            if status_atual == 9 and novo_status_id == 10:
+                mes_em = (row.get("mes_emissao") or "").strip()
+                if not mes_em:
+                    return {
+                        "status": "bloqueado",
+                        "mensagem": f"Serviço {servico_id}: O preenchimento do Mês de Emissão (MM/AAAA) é obrigatório para iniciar a Conciliação (CDU V5 - Tela 05)."
+                    }
+
+            # CDU V5 - Bloco 5: Validação do Status 11 -> 12 (Divergências -> Cobrar)
+            if status_atual == 11 and novo_status_id == 12:
+                cursor.execute("""
+                    SELECT COUNT(*) as cnt FROM comentarios_internos 
+                    WHERE servico_id = %s AND (INSTR(texto, 'Justificativa') > 0 OR (usuario_nome != 'Conciliador Automático SIGES' AND usuario_nome != 'Sistema SIGES'))
+                """, (servico_id,))
+                c_row = cursor.fetchone()
+                if not c_row or c_row["cnt"] == 0:
+                    return {
+                        "status": "bloqueado",
+                        "mensagem": f"Serviço {servico_id}: É obrigatório registrar uma justificativa técnica da divergência na Timeline antes de avançar para cobrança (CDU V5 - Status 11)."
+                    }
+
+            # CDU V5 - Bloco 5: Validação do Status 12 -> 13 (Cobrar -> Em Disputa)
+            if status_atual == 12 and novo_status_id == 13:
+                mes_reap = (row.get("mes_reapresentacao") or "").strip()
+                if not mes_reap:
+                    return {
+                        "status": "bloqueado",
+                        "mensagem": f"Serviço {servico_id}: O preenchimento do Mês de Reapresentação da Medição é obrigatório para submeter a disputa (CDU V5 - Status 12)."
+                    }
+                cursor.execute("UPDATE servicos SET responsavel_disputa = %s WHERE id = %s", (usuario_nome, servico_id))
 
             # CDU V5 - Bloco 4: Bypass do Fluxo Comercial (Salto de Status 01 -> 08)
             is_comercial = ("COMERCIAL" in contrato) or ("COMERCIAL" in tp_servico) or ("COMERCIAL" in tp_obra)
@@ -600,3 +656,271 @@ def obter_parametros_pendencias_db():
         return {"cosampa": [], "distribuidora": []}
     finally:
         conn.close()
+
+# ==============================================================================
+# CDU V5 - BLOCO 5: FUNÇÕES DE CONCILIAÇÃO E COMPARADOR BILATERAL
+# ==============================================================================
+
+def gerar_snapshot_conciliacao_db(servico_ids, evento_id=None):
+    """
+    CDU V5 - Tela 05 (Item 2 - Status 10):
+    Gera um snapshot imutável ("Relatório ANTES") do estado dos serviços 
+    antes da conciliação/importação da planilha de pagamentos.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return {"status": "erro", "mensagem": "Falha na conexão com o banco"}
+    
+    if not evento_id:
+        evento_id = f"EVT-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+
+    try:
+        total_gravados = 0
+        with conn.cursor() as cursor:
+            for sid in servico_ids:
+                cursor.execute("SELECT * FROM servicos WHERE id = %s", (sid,))
+                srv = cursor.fetchone()
+                if not srv:
+                    continue
+                
+                srv_json = json.dumps(srv, default=str, ensure_ascii=False)
+                st_ant = srv.get("status_id") or 9
+                v_fat = srv.get("valor") or 0.0
+                v_pago_ant = srv.get("valor_pago_cliente") or 0.0
+
+                cursor.execute("""
+                    INSERT INTO conciliacao_snapshots 
+                        (evento_id, servico_id, status_id_anterior, valor_faturado, valor_pago_anterior, dados_servico_json, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                """, (evento_id, sid, st_ant, v_fat, v_pago_ant, srv_json))
+                total_gravados += 1
+
+            conn.commit()
+        return {"status": "sucesso", "evento_id": evento_id, "total_snapshots": total_gravados}
+    except Exception as e:
+        print(f"[Erro Snapshot Conciliação] {e}")
+        return {"status": "erro", "mensagem": str(e)}
+    finally:
+        conn.close()
+
+def buscar_snapshot_conciliacao_db(evento_id):
+    """
+    Retorna os registros do snapshot do 'Relatório ANTES' para auditoria e conferência.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT cs.id, cs.evento_id, cs.servico_id, cs.status_id_anterior, 
+                       cs.valor_faturado, cs.valor_pago_anterior, cs.created_at,
+                       s.contrato, s.num_servico, s.tdc, s.cliente, s.tipo_servico
+                FROM conciliacao_snapshots cs
+                LEFT JOIN servicos s ON s.id = cs.servico_id
+                WHERE cs.evento_id = %s
+                ORDER BY cs.id ASC
+            """, (evento_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        print(f"[Erro Busca Snapshot] {e}")
+        return []
+    finally:
+        conn.close()
+
+def fechar_evento_conciliacao_db(evento_id, itens_pagamento, usuario_nome="Analista Fechamento", usuario_email="analista@cosampa.com.br"):
+    """
+    CDU V5 - Tela 05 (Item 2 - Status 10):
+    Executa o fechamento do evento de conciliação:
+    - Se o valor pago bater 100% com o valor executado: avança para 14 (FATURADO TOTAL - FINALIZADO) e bloqueia.
+    - Se houver divergência de valor: avança para 11 (CONCILIADO COM DIVERGENCIAS),
+      calcula DIVERGÊNCIA DA CONCILIAÇÃO e grava ocorrência na Timeline.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return {"status": "erro", "mensagem": "Falha na conexão com o banco"}
+
+    finalizados = 0
+    divergentes = 0
+    detalhes = []
+
+    try:
+        # Primeiro, gera o snapshot de segurança caso ainda não exista para o evento
+        sids = [it.get("id") or it.get("num_servico") for it in itens_pagamento if it.get("id") or it.get("num_servico")]
+        gerar_snapshot_conciliacao_db(sids, evento_id)
+
+        for item in itens_pagamento:
+            sid = item.get("id") or item.get("num_servico")
+            v_pago = float(item.get("valor_pago") or 0.0)
+
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT id, num_servico, valor, valor_pago_cliente, status_id FROM servicos WHERE id = %s OR num_servico = %s", (sid, sid))
+                srv = cursor.fetchone()
+                if not srv:
+                    detalhes.append({"id": sid, "status": "nao_encontrado"})
+                    continue
+
+                real_id = srv["id"]
+                v_fat = float(srv.get("valor") or 0.0)
+                dif = round(v_fat - v_pago, 2)
+
+                if abs(dif) < 0.01:
+                    # 100% Batido! Finalizado
+                    novo_st = 14
+                    div_str = ""
+                    cursor.execute("""
+                        UPDATE servicos 
+                        SET status_id = %s, valor_pago_cliente = %s, divergencia_conciliacao = %s, updated_at = NOW() 
+                        WHERE id = %s
+                    """, (novo_st, v_pago, div_str, real_id))
+                    conn.commit()
+
+                    inserir_comentario_db(
+                        servico_id=real_id,
+                        usuario_id=1,
+                        usuario_nome="Conciliador Automático SIGES",
+                        texto=f"✅ [Conciliação Automática - CDU V5] Evento '{evento_id}': Pagamento 100% batido com a Distribuidora (R$ {v_pago:.2f}). Serviço encerrado em FATURADO TOTAL (FINALIZADO)."
+                    )
+                    registrar_log_auditoria(real_id, usuario_nome, usuario_email, "status_id", srv["status_id"], novo_st)
+                    finalizados += 1
+                    detalhes.append({"id": real_id, "resultado": "finalizado", "valor_faturado": v_fat, "valor_pago": v_pago, "status_id": novo_st})
+                else:
+                    # Com Divergência! Status 11
+                    novo_st = 11
+                    div_str = f"R$ {dif:.2f}"
+                    tipo_div = "a menor (possível glosa)" if dif > 0 else "a maior"
+                    cursor.execute("""
+                        UPDATE servicos 
+                        SET status_id = %s, valor_pago_cliente = %s, divergencia_conciliacao = %s, updated_at = NOW() 
+                        WHERE id = %s
+                    """, (novo_st, v_pago, div_str, real_id))
+                    conn.commit()
+
+                    inserir_comentario_db(
+                        servico_id=real_id,
+                        usuario_id=1,
+                        usuario_nome="Conciliador Automático SIGES",
+                        texto=f"⚠️ [Conciliação Automática - CDU V5] Evento '{evento_id}': Divergência identificada {tipo_div}! Valor Faturado: R$ {v_fat:.2f} vs Valor Pago: R$ {v_pago:.2f} (Diferença: {div_str}). Serviço encaminhado para reanálise no Status 11."
+                    )
+                    registrar_log_auditoria(real_id, usuario_nome, usuario_email, "status_id", srv["status_id"], novo_st)
+                    registrar_log_auditoria(real_id, usuario_nome, usuario_email, "divergencia_conciliacao", "", div_str)
+                    divergentes += 1
+                    detalhes.append({"id": real_id, "resultado": "divergente", "valor_faturado": v_fat, "valor_pago": v_pago, "diferenca": dif, "status_id": novo_st})
+
+        return {
+            "status": "sucesso",
+            "evento_id": evento_id,
+            "total_processados": len(detalhes),
+            "finalizados": finalizados,
+            "divergentes": divergentes,
+            "detalhes": detalhes
+        }
+    except Exception as e:
+        print(f"[Erro Fechamento Evento] {e}")
+        return {"status": "erro", "mensagem": str(e)}
+    finally:
+        conn.close()
+
+def obter_comparador_bilateral_db(servico_id):
+    """
+    CDU V5 - Tela 01 (Item 2 - Status 11):
+    Retorna os dados do Comparador Dinâmico Bilateral:
+    Atividade Executada (Valor Realizado) vs. Atividade Paga (Valor Pago).
+    """
+    conn = get_db_connection()
+    if not conn:
+        return {"status": "erro", "mensagem": "Falha na conexão com o banco"}
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM servicos WHERE id = %s", (servico_id,))
+            srv = cursor.fetchone()
+            if not srv:
+                return {"status": "erro", "mensagem": "Serviço não encontrado"}
+
+            # Busca itens de baremo_itens
+            cursor.execute("SELECT * FROM baremo_itens WHERE servico_id = %s", (servico_id,))
+            itens = cursor.fetchall()
+
+            # Se não houver itens detalhados cadastrados, monta linha de atividade com o valor do serviço
+            if not itens:
+                v_fat = float(srv.get("valor") or 0.0)
+                v_pago = float(srv.get("valor_pago_cliente") or 0.0)
+                itens = [{
+                    "id": 1,
+                    "servico_id": servico_id,
+                    "codigo_item": srv.get("num_servico") or servico_id,
+                    "descricao": srv.get("tipo_servico") or "Atividade Principal Executada",
+                    "quantidade": 1.0,
+                    "valor_medido": v_fat,
+                    "quantidade_paga": 1.0 if v_pago > 0 else 0.0,
+                    "valor_pago_item": v_pago,
+                    "divergencia_item": round(v_fat - v_pago, 2)
+                }]
+
+            sharepoint = srv.get("sharepoint_url") or f"https://cosampa.sharepoint.com/sites/medicoes/comprovantes/{srv.get('num_servico')}"
+
+            return {
+                "status": "sucesso",
+                "servico": {
+                    "id": srv["id"],
+                    "num_servico": srv["num_servico"],
+                    "contrato": srv["contrato"],
+                    "tipo_servico": srv["tipo_servico"],
+                    "cliente": srv["cliente"],
+                    "status_id": srv["status_id"],
+                    "valor": float(srv["valor"] or 0.0),
+                    "valor_pago": float(srv["valor_pago_cliente"] or 0.0),
+                    "divergencia": srv.get("divergencia_conciliacao") or f"R$ {float(srv['valor'] or 0.0) - float(srv['valor_pago_cliente'] or 0.0):.2f}",
+                    "mes_reapresentacao": srv.get("mes_reapresentacao") or "",
+                    "responsavel_disputa": srv.get("responsavel_disputa") or "",
+                    "sharepoint_url": sharepoint
+                },
+                "itens": itens
+            }
+    except Exception as e:
+        print(f"[Erro Comparador Bilateral] {e}")
+        return {"status": "erro", "mensagem": str(e)}
+    finally:
+        conn.close()
+
+def salvar_comparador_bilateral_db(servico_id, novo_status_id, justificativa="", mes_reapresentacao="", sharepoint_url="", usuario_nome="Analista Fechamento", usuario_email="analista@cosampa.com.br"):
+    """
+    CDU V5 - Tela 01 (Status 11 -> 12 -> 13):
+    Salva a tratativa do Comparador Bilateral, injeta a justificativa na Timeline
+    e tramita o serviço.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return {"status": "erro", "mensagem": "Falha na conexão com o banco"}
+
+    try:
+        with conn.cursor() as cursor:
+            # 1. Se informou novo sharepoint_url, atualiza
+            if sharepoint_url:
+                cursor.execute("UPDATE servicos SET sharepoint_url = %s WHERE id = %s", (sharepoint_url, servico_id))
+            
+            # 2. Se informou mes_reapresentacao, atualiza
+            if mes_reapresentacao:
+                cursor.execute("UPDATE servicos SET mes_reapresentacao = %s WHERE id = %s", (mes_reapresentacao, servico_id))
+                registrar_log_auditoria(servico_id, usuario_nome, usuario_email, "mes_reapresentacao", "", mes_reapresentacao)
+
+            conn.commit()
+
+        # 3. Insere a justificativa na Timeline
+        if justificativa and justificativa.strip():
+            inserir_comentario_db(
+                servico_id=servico_id,
+                usuario_id=1,
+                usuario_nome=usuario_nome,
+                texto=f"⚖️ [Justificativa de Divergência - CDU V5]: {justificativa.strip()}"
+            )
+
+        # 4. Tramita o serviço
+        return tramitar_servico_db(servico_id, novo_status_id, usuario_nome, usuario_email)
+    except Exception as e:
+        print(f"[Erro Salvar Comparador] {e}")
+        return {"status": "erro", "mensagem": str(e)}
+    finally:
+        conn.close()
+

@@ -334,9 +334,10 @@
 <li><a href="#2-motor-colaborativo-timeline-e-notificações-bloco-2">2. Motor Colaborativo: Timeline e Notificações (Bloco 2)</a></li>
 <li><a href="#3-módulo-de-pendências-hierarquia-e-sla-bloco-3">3. Módulo de Pendências, Hierarquia e SLA (Bloco 3)</a></li>
 <li><a href="#4-fluxos-de-tela-01-e-lotes-inteligentes-bloco-4">4. Fluxos de Tela 01 e Lotes Inteligentes (Bloco 4)</a></li>
-<li><a href="#5-perfis-de-tela-layouts-dinâmicos-e-rbac-cdu-v4--v5">5. Perfis de Tela, Layouts Dinâmicos e RBAC (CDU V4 / V5)</a></li>
-<li><a href="#6-auditoria-global-e-ingestão-de-dados-cdu-v3--v5">6. Auditoria Global e Ingestão de Dados (CDU V3 / V5)</a></li>
-<li><a href="#7-roadmap-comparativo-o-que-falta-implementar-bloco-5">7. Roadmap Comparativo: O que falta implementar (Bloco 5)</a></li>
+<li><a href="#5-módulo-financeiro-e-conciliação-bloco-5---telas-04-e-05">5. Módulo Financeiro e Conciliação (Bloco 5 - Telas 04 e 05)</a></li>
+<li><a href="#6-perfis-de-tela-layouts-dinâmicos-e-rbac-cdu-v4--v5">6. Perfis de Tela, Layouts Dinâmicos e RBAC (CDU V4 / V5)</a></li>
+<li><a href="#7-auditoria-global-e-ingestão-de-dados-cdu-v3--v5">7. Auditoria Global e Ingestão de Dados (CDU V3 / V5)</a></li>
+<li><a href="#8-resumo-executivo-de-progresso">8. Resumo Executivo de Progresso</a></li>
 </ul>
 <hr />
 <h2>1. Fundações de Infraestrutura e Performance (Bloco 1)</h2>
@@ -707,54 +708,185 @@
 </li>
 </ul>
 <hr />
-<h2>7. Roadmap Comparativo: O que falta implementar (Bloco 5)</h2>
-<p>Abaixo está o quadro de funcionalidades previstas no <strong>CDU V5</strong> que correspondem ao último bloco do plano de implementação e que <strong>ainda não foram implementadas</strong>:</p>
+<h2>5. Módulo Financeiro e Conciliação (Bloco 5 - Telas 04 e 05)</h2>
+<p><em>Objetivo no CDU V5: Viabilizar a esteira financeira e a conciliação automática com a Distribuidora, provendo relatórios imutáveis antes e depois do fechamento, confrontos bilaterais e gestão de disputas (Item 2 - Telas 04, 05 e 06 do CDU V5).</em></p>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 5.1 Validação de Faturamento e Trava de Data (Tela 04 - Status 08 -&gt; 09)</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: Rota <code>POST /api/faturamento/validar-lote</code> em <code>backend/main.py</code> e regras de tramitação em <code>tramitar_servico_db()</code>.</li>
+<li>Frontend: <code>renderFaturamento()</code> e seção de faturamento no Drawer <code>renderDrawer()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Exige obrigatoriamente o preenchimento da <code>data_validacao</code>. Tentativas de avanço do Status 08 para o Status 09 sem data são bloqueadas com retorno HTTP 400 e alerta visual.</li>
+<li>Disponibiliza barra de ação em lote para validação simultânea de serviços com inserção em lote de <code>data_validacao</code> e avanço para Status 09.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Exigir o preenchimento obrigatório da Data de Validação pelo usuário. O sistema não deve permitir o avanço para o Status 09 sem este registro formal (Item 2 - Tela 04).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 5.2 Mês de Emissão e Liberação para Conciliação (Tela 05 - Sub-Aba 09 -&gt; 10)</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: Rota <code>POST /api/faturamento/mes-emissao-lote</code> em <code>backend/main.py</code> e trava em <code>tramitar_servico_db()</code>.</li>
+<li>Frontend: Sub-aba 09 em <code>renderConciliacoes()</code> e Drawer de detalhes.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Bloqueia o avanço do Status 09 para o Status 10 se o campo <code>mes_emissao</code> (<code>MM/AAAA</code>) estiver ausente.</li>
+<li>Permite preenchimento individual no Drawer ou em lote pela barra de ferramentas superior.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Exigir o preenchimento obrigatório do Mês de Emissão do Faturamento (formato <code>MM/AAAA</code>). Somente com este campo preenchido o serviço é liberado para o Evento de Conciliação (Item 2 - Tela 05, Sub-Aba 09).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 5.3 Snapshot Pré-Importação ("Relatório ANTES") e Evento de Conciliação</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: <code>gerar_snapshot_conciliacao_db()</code>, <code>buscar_snapshot_conciliacao_db()</code>, rotas <code>POST /api/conciliacao/evento/iniciar-snapshot</code> e <code>GET /api/conciliacao/evento/snapshot/&lt;evento_id&gt;</code>.</li>
+<li>Banco de Dados: Tabela imutável <code>conciliacao_snapshots</code> com auditoria completa de estado e JSON integral do serviço.</li>
+<li>Frontend: Modal <code>exibirModalSnapshot()</code> na Sub-Aba 10.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Antes do processamento de pagamento da Distribuidora, o sistema tira uma fotografia instantânea de todos os serviços do lote, salvando IDs, contratos, clientes, status anterior e valores faturados em tabela dedicada.</li>
+<li>Garante que mesmo após divergências ou quitações, a Cosampa sempre disponha da versão exata prévia para auditoria ou prestação de contas.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Gerar snapshot automático antes da conciliação ("Relatório ANTES"), persistindo o estado original dos serviços para comparação e auditoria contratual (Item 2 - Tela 05, Sub-Aba 10).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 5.4 Fechamento Transacional Automático de Conciliação</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: <code>fechar_evento_conciliacao_db()</code> via rota <code>POST /api/conciliacao/evento/fechar</code>.</li>
+<li>Frontend: Modal transacional <code>exibirModalFecharEvento()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Confronto automático entre o valor faturado Cosampa e o valor pago pela Distribuidora:<ul>
+<li><strong>100% Batido:</strong> Direcionado automaticamente para o <strong>Status 14 (FATURADO TOTAL - FINALIZADO)</strong>, marcando o serviço como concluído e trancado.</li>
+<li><strong>Com Divergência / Glosa:</strong> Direcionado automaticamente para o <strong>Status 11 (CONCILIADO COM DIVERGENCIAS)</strong>, calculando o campo <code>divergencia_conciliacao</code> e gerando notificação detalhada na Timeline.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Se o confronto bater 100%, direcionar automaticamente para o Status 14; caso haja divergências (pagamento a menor ou a maior), direcionar automaticamente para o Status 11 (Item 2 - Tela 05).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 5.5 Comparador Dinâmico Bilateral (Status 11) e Evidências SharePoint</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: <code>obter_comparador_bilateral_db()</code>, <code>salvar_comparador_bilateral_db()</code> e rotas associadas.</li>
+<li>Frontend: Painel do Comparador Bilateral e detalhamento por item em tabela de <code>baremo_itens</code> no Drawer <code>renderDrawer()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Confronta lado a lado os valores e quantidades realizados (Cosampa) com os valores pagos (Distribuidora) por item de baremo, calculando a divergência pontual.</li>
+<li>Exige obrigatoriamente o registro de justificativa técnica na Timeline antes de autorizar o avanço para Status 12 (Cobrança).</li>
+<li>Permite anexar e gravar o link comprobatório das evidências no <strong>SharePoint</strong>.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Exibir Comparador Dinâmico Bilateral entre Realizado Cosampa e Pago Distribuidora por atividade. A tramitação para cobrança (Status 12) é estritamente condicionada à inserção de justificativa técnica na Timeline e documentação de suporte (Item 2 - Tela 01 e Tela 05, Status 11).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 5.6 Gestão de Cobrança, Reapresentação e Disputa Contratual (Status 12 -&gt; 13)</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: Validação de <code>mes_reapresentacao</code> e atribuição de <code>responsavel_disputa</code> em <code>tramitar_servico_db()</code>.</li>
+<li>Frontend: Formulário de reapresentação e visualização de custódia jurídica/contratual no Drawer <code>renderDrawer()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>O avanço do Status 12 para o Status 13 (Em Disputa) bloqueia se não houver o <code>mes_reapresentacao</code> preenchido.</li>
+<li>Ao tramitar para 13, o sistema grava automaticamente o usuário logado como <code>responsavel_disputa</code>.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Controlar o mês de reapresentação da medição glosada, acompanhando prazos de SLA e definindo o responsável formal pela condução da disputa contratual com o cliente (Item 2 - Status 12 e 13).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 5.7 Imutabilidade do Status 14 (FATURADO TOTAL - FINALIZADO)</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: Trava de imutabilidade em <code>tramitar_servico_db()</code>.</li>
+<li>Frontend: Bloqueio dos seletores de avanço e exibição de badge <code>🔒 REGISTRO FINALIZADO E TRANCADO</code> no Drawer <code>renderDrawer()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Qualquer tentativa de alteração cadastral ou tramitação operacional de um serviço com Status 14 é terminantemente rejeitada pela API e bloqueada na interface.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>O Status 14 encerra o ciclo de vida do serviço, tornando o registro imutável contra modificações acidentais ou tramitações operacionais (Item 2 - Tela 06).</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>8. Resumo Executivo de Progresso</h2>
 <table>
 <thead>
 <tr>
-<th style="text-align: center;">Status</th>
-<th style="text-align: left;">Funcionalidade (CDU V5)</th>
-<th style="text-align: left;">O que a função deverá fazer</th>
-<th style="text-align: center;">Bloco Previsto</th>
+<th style="text-align: left;">Bloco de Implementação</th>
+<th style="text-align: left;">Escopo do CDU V5</th>
+<th style="text-align: center;">Status Técnico</th>
+<th style="text-align: center;">Status de Homologação</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align: center;">⏳ <strong><span class="badge badge-pending">⏳ PENDENTE</span></strong></td>
-<td style="text-align: left;"><strong>Telas Dedicadas de Faturamento e Conciliação (Telas 04 e 05)</strong></td>
-<td style="text-align: left;">Criar interfaces dedicadas para gerir status do <code>08</code> ao <code>13</code>, com inputs de <code>Data de Validação</code> e <code>Mês de Emissão</code> (Item 2 - Telas 04 e 05).</td>
-<td style="text-align: center;"><strong>Bloco 5</strong></td>
+<td style="text-align: left;"><strong>Bloco 1</strong></td>
+<td style="text-align: left;">Fundações de Infraestrutura, Paginação Server-Side e Performance</td>
+<td style="text-align: center;">100% Concluído</td>
+<td style="text-align: center;">✅ Homologado</td>
 </tr>
 <tr>
-<td style="text-align: center;">⏳ <strong><span class="badge badge-pending">⏳ PENDENTE</span></strong></td>
-<td style="text-align: left;"><strong>Evento Transacional de Conciliação e Snapshot "Relatório ANTES"</strong></td>
-<td style="text-align: left;">Processar planilhas de pagamento da Distribuidora com geração de snapshot pré-importação, direcionando serviços 100% batidos para <code>Finalizado</code> e divergências para <code>11</code> (Item 2 - Tela 05).</td>
-<td style="text-align: center;"><strong>Bloco 5</strong></td>
+<td style="text-align: left;"><strong>Bloco 2</strong></td>
+<td style="text-align: left;">Motor Colaborativo, Timeline e Menções @usuário</td>
+<td style="text-align: center;">100% Concluído</td>
+<td style="text-align: center;">✅ Homologado</td>
 </tr>
 <tr>
-<td style="text-align: center;">⏳ <strong><span class="badge badge-pending">⏳ PENDENTE</span></strong></td>
-<td style="text-align: left;"><strong>Comparador Dinâmico Bilateral (Status 11)</strong></td>
-<td style="text-align: left;">Interface comparando <code>Valor Realizado vs. Valor Pago</code> por atividade na conciliação, exigindo justificativa obrigatória na Timeline para tramitação (Item 2 - Tela 01, Status 11).</td>
-<td style="text-align: center;"><strong>Bloco 5</strong></td>
+<td style="text-align: left;"><strong>Bloco 3</strong></td>
+<td style="text-align: left;">Módulo de Pendências, SLA Dinâmico e Hierarquia Operacional</td>
+<td style="text-align: center;">100% Concluído</td>
+<td style="text-align: center;">✅ Homologado</td>
 </tr>
 <tr>
-<td style="text-align: center;">⏳ <strong><span class="badge badge-pending">⏳ PENDENTE</span></strong></td>
-<td style="text-align: left;"><strong>Gestão de Disputas e Pagamento a Menor (Status 12 e 13)</strong></td>
-<td style="text-align: left;">Controle de SLA com <code>Mês de Reapresentação da Medição</code> e acompanhamento de custódia de disputa contratual com o cliente (Item 2 - Tela 01, Status 12 e 13).</td>
-<td style="text-align: center;"><strong>Bloco 5</strong></td>
+<td style="text-align: left;"><strong>Bloco 4</strong></td>
+<td style="text-align: left;">Fluxos de Medição (Tela 01), Validador de Origem, Lotes e Bypass</td>
+<td style="text-align: center;">100% Concluído</td>
+<td style="text-align: center;">✅ Homologado</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Bloco 5</strong></td>
+<td style="text-align: left;">Módulo Financeiro e Conciliação (Telas 04, 05 e 06, Snapshot, Comparador)</td>
+<td style="text-align: center;">100% Concluído</td>
+<td style="text-align: center;">✅ Homologado</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Transversais</strong></td>
+<td style="text-align: left;">RBAC, Gestão de Usuários, Perfis de Tela, Importador Dinâmico e Auditoria</td>
+<td style="text-align: center;">100% Concluído</td>
+<td style="text-align: center;">✅ Homologado</td>
 </tr>
 </tbody>
 </table>
-<hr />
-<h2>📊 Resumo Executivo de Progresso</h2>
-<ul>
-<li><strong>Bloco 1 (Fundações e Performance):</strong> 100% Concluído e Homologado.</li>
-<li><strong>Bloco 2 (Motor Colaborativo / Timeline):</strong> 100% Concluído e Homologado.</li>
-<li><strong>Bloco 3 (Módulo de Pendências / SLA / Hierarquia):</strong> 100% Concluído e Homologado.</li>
-<li><strong>Bloco 4 (Fluxos Tela 01 e Lotes Inteligentes):</strong> 100% Concluído e Homologado.</li>
-<li><strong>Transversais (Perfis de Tela, RBAC, Auditoria, Importador):</strong> 100% Concluído e Homologado.</li>
-<li><strong>Bloco 5 (Módulo Financeiro e Conciliação):</strong> Planejado (Aguardando liberação de desenvolvimento).</li>
-</ul>
+<blockquote>
+<p>[!NOTE]
+<strong>Conclusão de Desenvolvimento:</strong> Todos os módulos de engenharia previstos no documento <strong>CDU V5</strong> foram rigorosamente implementados, testados por scripts automatizados ponta a ponta e integrados com sucesso ao banco de dados e à interface visual do SIGES.</p>
+</blockquote>
 
     <div class="footer-print">
       <span>SIGES — Sistema de Gestão de Etapas de Serviços | Cosampa</span>

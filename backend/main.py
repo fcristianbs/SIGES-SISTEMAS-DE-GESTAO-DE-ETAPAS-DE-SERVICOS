@@ -15,7 +15,14 @@ except ImportError:
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from data import PERFIS_DB, USUARIOS_DB, SERVICOS_DB
-from db import get_db_connection, buscar_servicos_db, obter_opcoes_filtro_db, tramitar_servico_db, buscar_logs_auditoria, registrar_log_auditoria, atualizar_dados_servico_db, processar_importacao_dinamica, inserir_comentario_db, buscar_comentarios_db, obter_parametros_pendencias_db
+from db import (
+    get_db_connection, buscar_servicos_db, obter_opcoes_filtro_db, tramitar_servico_db, 
+    buscar_logs_auditoria, registrar_log_auditoria, atualizar_dados_servico_db, 
+    processar_importacao_dinamica, inserir_comentario_db, buscar_comentarios_db, 
+    obter_parametros_pendencias_db, gerar_snapshot_conciliacao_db, 
+    buscar_snapshot_conciliacao_db, fechar_evento_conciliacao_db, 
+    obter_comparador_bilateral_db, salvar_comparador_bilateral_db
+)
 from etl_sync import executar_sincronizacao_etl
 import json
 app = Flask(__name__, static_folder="../frontend")
@@ -269,6 +276,150 @@ def importar_rejeicoes_lote():
         "total": len(rejeicoes),
         "roteamento_padrao": "Status 06 (Rejeitado Fechamento)"
     })
+
+# ==============================================================================
+# CDU V5 - BLOCO 5: ROTAS DE FATURAMENTO E CONCILIAÇÃO (TELAS 04 E 05)
+# ==============================================================================
+
+@app.route("/api/faturamento/validar-lote", methods=["POST"])
+def validar_lote_faturamento():
+    """ CDU V5 - Tela 04: Validação e avanço para Conciliação (Status 08 -> 09) """
+    data = request.json or {}
+    servico_ids = data.get("servico_ids", [])
+    data_validacao = data.get("data_validacao", "")
+    usuario_nome = data.get("usuario_nome", "Analista Faturamento")
+    usuario_email = data.get("usuario_email", "faturamento@cosampa.com.br")
+
+    if not servico_ids or not data_validacao:
+        return jsonify({"status": "erro", "mensagem": "servico_ids e data_validacao são obrigatórios."}), 400
+
+    sucessos = 0
+    sucessos_ids = []
+    erros = []
+    for sid in servico_ids:
+        atualizar_dados_servico_db(sid, {"data_validacao": data_validacao}, usuario_nome, usuario_email)
+        res = tramitar_servico_db(sid, 9, usuario_nome, usuario_email)
+        if res.get("status") == "sucesso":
+            sucessos += 1
+            sucessos_ids.append(sid)
+        else:
+            erros.append({"id": sid, "erro": res.get("mensagem")})
+
+    status_resp = "sucesso" if sucessos > 0 else "erro"
+    codigo_http = 200 if (sucessos > 0 or not erros) else 400
+    return jsonify({
+        "status": status_resp,
+        "sucessos": sucessos,
+        "sucessos_ids": sucessos_ids,
+        "falhas": len(erros),
+        "erros": erros,
+        "mensagem": f"{sucessos} serviço(s) validado(s) para faturamento e enviados para conciliação (Status 09)."
+    }), codigo_http
+
+@app.route("/api/faturamento/mes-emissao-lote", methods=["POST"])
+def mes_emissao_lote():
+    """ CDU V5 - Tela 05: Atribuir Mês de Emissão e liberar para Conciliação (Status 09 -> 10) """
+    data = request.json or {}
+    servico_ids = data.get("servico_ids", [])
+    mes_emissao = data.get("mes_emissao", "")
+    usuario_nome = data.get("usuario_nome", "Analista Faturamento")
+    usuario_email = data.get("usuario_email", "faturamento@cosampa.com.br")
+
+    if not servico_ids or not mes_emissao:
+        return jsonify({"status": "erro", "mensagem": "servico_ids e mes_emissao (MM/AAAA) são obrigatórios."}), 400
+
+    sucessos = 0
+    sucessos_ids = []
+    erros = []
+    for sid in servico_ids:
+        atualizar_dados_servico_db(sid, {"mes_emissao": mes_emissao}, usuario_nome, usuario_email)
+        res = tramitar_servico_db(sid, 10, usuario_nome, usuario_email)
+        if res.get("status") == "sucesso":
+            sucessos += 1
+            sucessos_ids.append(sid)
+        else:
+            erros.append({"id": sid, "erro": res.get("mensagem")})
+
+    status_resp = "sucesso" if sucessos > 0 else "erro"
+    codigo_http = 200 if (sucessos > 0 or not erros) else 400
+    return jsonify({
+        "status": status_resp,
+        "sucessos": sucessos,
+        "sucessos_ids": sucessos_ids,
+        "falhas": len(erros),
+        "erros": erros,
+        "mensagem": f"{sucessos} serviço(s) com Mês de Emissão ({mes_emissao}) liberados para Conciliação (Status 10)."
+    }), codigo_http
+
+@app.route("/api/conciliacao/evento/iniciar-snapshot", methods=["POST"])
+def iniciar_snapshot_conciliacao():
+    """ CDU V5 - Tela 05: Gerar Snapshot Pré-Importação ('Relatório ANTES') """
+    data = request.json or {}
+    servico_ids = data.get("servico_ids", [])
+    evento_id = data.get("evento_id")
+
+    if not servico_ids:
+        return jsonify({"status": "erro", "mensagem": "servico_ids é obrigatório."}), 400
+
+    res = gerar_snapshot_conciliacao_db(servico_ids, evento_id)
+    return jsonify(res)
+
+@app.route("/api/conciliacao/evento/snapshot/<evento_id>", methods=["GET"])
+def obter_snapshot_conciliacao(evento_id):
+    """ CDU V5 - Tela 05: Consultar 'Relatório ANTES' do Evento de Conciliação """
+    snapshots = buscar_snapshot_conciliacao_db(evento_id)
+    return jsonify({
+        "status": "sucesso",
+        "evento_id": evento_id,
+        "total": len(snapshots),
+        "data": snapshots
+    })
+
+@app.route("/api/conciliacao/evento/fechar", methods=["POST"])
+def fechar_evento_conciliacao():
+    """ CDU V5 - Tela 05: Fechamento Transacional do Evento com Conciliação Automática """
+    data = request.json or {}
+    evento_id = data.get("evento_id") or "EVT-PADRAO"
+    itens_pagamento = data.get("itens_pagamento", [])
+    usuario_nome = data.get("usuario_nome", "Analista Fechamento")
+    usuario_email = data.get("usuario_email", "analista@cosampa.com.br")
+
+    if not itens_pagamento:
+        return jsonify({"status": "erro", "mensagem": "itens_pagamento é obrigatório."}), 400
+
+    res = fechar_evento_conciliacao_db(evento_id, itens_pagamento, usuario_nome, usuario_email)
+    return jsonify(res)
+
+@app.route("/api/servicos/<id>/comparador-bilateral", methods=["GET"])
+def obter_comparador_bilateral(id):
+    """ CDU V5 - Tela 01 (Status 11): Obter Comparador Bilateral (Realizado vs Pago) """
+    res = obter_comparador_bilateral_db(id)
+    return jsonify(res)
+
+@app.route("/api/servicos/<id>/tramitar-divergencia", methods=["POST"])
+def tramitar_divergencia(id):
+    """ CDU V5 - Tela 01 (Status 11 -> 12 -> 13): Tramitar com Justificativa e SLA """
+    data = request.json or {}
+    novo_status_id = data.get("novo_status_id")
+    justificativa = data.get("justificativa", "")
+    mes_reapresentacao = data.get("mes_reapresentacao", "")
+    sharepoint_url = data.get("sharepoint_url", "")
+    usuario_nome = data.get("usuario_nome", "Analista Fechamento")
+    usuario_email = data.get("usuario_email", "analista@cosampa.com.br")
+
+    if not novo_status_id:
+        return jsonify({"status": "erro", "mensagem": "novo_status_id é obrigatório."}), 400
+
+    res = salvar_comparador_bilateral_db(
+        servico_id=id,
+        novo_status_id=int(novo_status_id),
+        justificativa=justificativa,
+        mes_reapresentacao=mes_reapresentacao,
+        sharepoint_url=sharepoint_url,
+        usuario_nome=usuario_nome,
+        usuario_email=usuario_email
+    )
+    return jsonify(res)
 
 @app.route("/api/supervisores", methods=["GET"])
 def listar_supervisores():
