@@ -386,9 +386,11 @@ class Store {
   }
 
   async tramitarLoteAPI(servicoIds, novoStatus, msg, extraData = {}) {
+    if (!servicoIds || servicoIds.length === 0) return false;
     if (!confirm(`Confirma movimentação de ${servicoIds.length} serviço(s) para: ${msg}?`)) return false;
     this.setState({ carregando: true });
     
+    let responseData = null;
     try {
       const res = await fetch(`/api/servicos/lote/tramitar`, {
         method: 'POST',
@@ -397,14 +399,25 @@ class Store {
           servico_ids: servicoIds,
           novo_status_id: parseInt(novoStatus),
           dados_extras: extraData,
-          usuario_nome: authService.usuarioLogado?.nome || 'Analista'
+          usuario_nome: authService.usuarioLogado?.nome || 'Analista Fechamento'
         })
       });
-      const data = await res.json();
-      if (res.ok && data.status === 'sucesso') {
-        this.notifyToast(`${data.mensagem}`);
+      responseData = await res.json();
+      
+      if (res.ok && responseData.status === 'sucesso') {
+        if (responseData.falhas > 0) {
+          const errosTexto = responseData.erros.map(e => `\n• ${e.id}: ${e.erro}`).join('');
+          alert(`⚠️ Processamento com Falha Parcial Inteligente (CDU V5):\n${responseData.sucessos} serviço(s) tramitado(s) com sucesso!\n${responseData.falhas} serviço(s) com pendência/erro não tramitaram:${errosTexto}`);
+        } else {
+          this.notifyToast(responseData.mensagem || `${responseData.sucessos} serviço(s) tramitado(s) com sucesso!`);
+        }
       } else {
-        alert(data.mensagem || 'Falha ao tramitar lote');
+        if (responseData && responseData.erros && responseData.erros.length > 0) {
+          const errosTexto = responseData.erros.map(e => `\n• ${e.id}: ${e.erro}`).join('');
+          alert(`⚠️ Erro de Validação na Tramitação:\n${responseData.mensagem || ''}${errosTexto}`);
+        } else {
+          alert(responseData?.mensagem || 'Falha ao tramitar lote.');
+        }
       }
     } catch (e) {
       console.error(e);
@@ -412,7 +425,9 @@ class Store {
     }
     
     await this.carregarServicosAPI();
-    this.setState({ selecionados: [], drawerServicoId: null });
+    const sucessosIds = responseData?.sucessos_ids || [];
+    const aindaSelecionados = servicoIds.filter(id => !sucessosIds.includes(id));
+    this.setState({ selecionados: aindaSelecionados, drawerServicoId: null });
     return true;
   }
 }
@@ -633,15 +648,25 @@ function renderDynamicTableRow(s, state, isIrma = false) {
   const def = STATUS_DEFS[s.st] || STATUS_DEFS[1];
   const isSel = state.selecionados.includes(s.id);
   
+  const numOrdem = s.num_servico || s.id.replace('SOB-', '');
+  const gpmLink = `<a href="https://gpm.cosampa.com.br/ordens/${numOrdem}" target="_blank" onclick="event.stopPropagation()" style="color:#0284c7;text-decoration:underline;font-weight:700;display:inline-flex;align-items:center;gap:3px" title="Abrir ordem no sistema legado GPM (Nova Aba)"><svg style="width:11px;height:11px;vertical-align:middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg> ${s.id}</a>`;
+
+  const irmaBadge = isIrma ? `<span class="badge-irma" style="background:#e0f2fe;color:#0369a1;font-size:9.5px;padding:2px 6px;border-radius:4px;font-weight:700;border:1px solid #bae6fd;margin-left:4px" title="${typeof isIrma === 'string' ? isIrma : 'Serviço Irmão (compartilha Incidência/Obra/Cliente)'}">🔗 SOB Irmã</span>` : '';
+
   return ativo.colunas_visiveis.map(colKey => {
     if (colKey === 'sel') return `<td style="padding:10px 12px" onclick="event.stopPropagation()"><input type="checkbox" class="check-svc" data-id="${s.id}" ${isSel ? 'checked' : ''}></td>`;
     if (colKey === 'st') return `<td style="padding:10px"><span class="badge-status" style="background:${def.bg};color:${def.fg}"><span class="badge-status-num">0${s.st}</span> ${def.n}</span></td>`;
-    if (colKey === 'svc_data') return `<td style="padding:10px"><b>${s.id}</b> ${isIrma ? `<span style="background:#e0f2fe;color:#0369a1;font-size:9.5px;padding:2px 5px;border-radius:4px;font-weight:700">SOB Irmã</span>` : ''}<br><small style="color:#71807a">${s.tp} · <b>${s.data || '—'}</b></small></td>`;
-    if (colKey === 'id') return `<td style="padding:10px"><b>${s.id}</b></td>`;
+    if (colKey === 'svc_data') return `<td style="padding:10px">${gpmLink} ${irmaBadge}<br><small style="color:#71807a">${s.tp} · <b>${s.data || '—'}</b></small></td>`;
+    if (colKey === 'id') return `<td style="padding:10px">${gpmLink} ${irmaBadge}</td>`;
     if (colKey === 'data') return `<td style="padding:10px">${s.data || '—'}</td>`;
     if (colKey === 'pep_tdc') return `<td style="padding:10px;font-family:var(--font-mono);font-size:11px"><b>${s.pep||'—'}</b><br><small style="color:#71807a">${s.tdc||'—'}</small></td>`;
     if (colKey === 'cli_ct') return `<td style="padding:10px;font-size:11px"><b>${s.cliente || '—'}</b><br><small style="font-weight:600;color:#5b6b65">${s.ct}</small></td>`;
-    if (colKey === 'origem') return `<td style="padding:10px;font-family:var(--font-mono);font-size:11px">${s.origem || 'PDA'}</td>`;
+    if (colKey === 'origem') {
+      if (!s.origem || s.origem === 'NÃO VALIDADO' || s.origem === 'PENDENTE') {
+        return `<td style="padding:10px"><span style="background:#fee2e2;color:#991b1b;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid #fecaca" title="Validação Obrigatória do Sistema de Origem Pendente!">⚠️ NÃO VALIDADO</span></td>`;
+      }
+      return `<td style="padding:10px;font-family:var(--font-mono);font-size:11px"><span style="background:#f0fdf4;color:#166534;padding:2px 6px;border-radius:4px;font-weight:600;border:1px solid #bbf7d0">${s.origem}</span></td>`;
+    }
     if (colKey === 'v') return `<td style="padding:10px;text-align:right;font-weight:600;font-family:var(--font-mono)">R$ ${s.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>`;
     if (colKey === 'ret') return `<td style="padding:10px;font-size:11px;color:#71807a">${s.ret || '—'}</td>`;
     if (colKey === 'ob') return `<td style="padding:10px"><b>${s.ob}</b></td>`;
@@ -991,12 +1016,13 @@ function renderMedicao(svcs, state) {
   container.innerHTML = `
     <div style="display:flex;gap:14px;align-items:flex-start">
       <div style="flex:1;min-width:0;background:#fff;border:1px solid var(--border-subtle);border-radius:10px;overflow:hidden">
-        <!-- Barra de Ações Rápidas em Lote -->
+        <!-- Barra de Ações Rápidas em Lote (Bloco 4) -->
         <div style="padding:10px 14px;background:#f8faf9;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:12px;font-weight:700;color:#1c5f4b">Ações de Medição & Validação (CDU-01 / CDU-02 / CDU-06)</span>
+          <span style="font-size:12px;font-weight:700;color:#1c5f4b">Ações de Medição & Validação (CDU V5)</span>
           <div style="display:flex;gap:8px">
-            <button id="btn-modal-cdu02" class="btn-primary" style="font-size:11px;padding:5px 10px">🚀 Enviar Lote p/ Validação (CDU-02)</button>
-            <button id="btn-modal-cdu06" class="btn-secondary" style="font-size:11px;padding:5px 10px">📥 Importar Rejeições Cliente (CDU-06)</button>
+            <button id="btn-aprovar-medicao" class="btn-primary" style="font-size:11px;padding:6px 12px;background:#059669;border-color:#059669">✅ Aprovar Medição (Avançar)</button>
+            <button id="btn-modal-cdu02" class="btn-primary" style="font-size:11px;padding:6px 12px">🚀 Enviar Lote p/ Validação (CDU-02)</button>
+            <button id="btn-modal-cdu06" class="btn-secondary" style="font-size:11px;padding:6px 12px">📥 Importar Rejeições Cliente (CDU-06)</button>
           </div>
         </div>
 
@@ -1008,10 +1034,32 @@ function renderMedicao(svcs, state) {
           </thead>
           <tbody>
             ${pagItens.map((s, idx) => {
-              const isIrma = idx > 0 && pagItens[idx-1].ct === s.ct;
+              // Algoritmo de Correlação de Serviços Irmãos (CDU V5 - Bloco 4):
+              // Agrupa ordens que compartilham Incidência, PEP/Obra ou Id Cliente
+              let irmaInfo = false;
+              for (const other of pagItens) {
+                if (other.id === s.id) continue;
+                if (s.incidencia && s.incidencia !== '—' && !s.incidencia.startsWith('INC-SOB') && other.incidencia === s.incidencia) {
+                  irmaInfo = `Irmão por Incidência: ${s.incidencia}`;
+                  break;
+                }
+                if (s.pep && s.pep !== '—' && !s.pep.startsWith('PEP-SOB') && other.pep === s.pep) {
+                  irmaInfo = `Irmão por Obra/PEP: ${s.pep}`;
+                  break;
+                }
+                if (s.id_cliente && s.id_cliente !== '—' && other.id_cliente === s.id_cliente) {
+                  irmaInfo = `Irmão por Cliente: ${s.id_cliente}`;
+                  break;
+                }
+                if (s.ob && s.ob !== '—' && other.ob === s.ob && s.ct === other.ct) {
+                  irmaInfo = `Irmão por Obra: ${s.ob}`;
+                  break;
+                }
+              }
+              const rowBorder = irmaInfo ? 'border-left: 3.5px solid #0284c7;' : '';
               return `
-                <tr class="row-svc" data-id="${s.id}" style="border-bottom:1px solid #eef1f0;background:${state.selecionados.includes(s.id) ? '#eaf2ee' : '#fff'};cursor:pointer">
-                  ${renderDynamicTableRow(s, state, isIrma)}
+                <tr class="row-svc" data-id="${s.id}" style="border-bottom:1px solid #eef1f0;background:${state.selecionados.includes(s.id) ? '#eaf2ee' : (irmaInfo ? '#f8fcff' : '#fff')};${rowBorder}cursor:pointer">
+                  ${renderDynamicTableRow(s, state, irmaInfo)}
                 </tr>
               `;
             }).join('')}
@@ -1025,6 +1073,21 @@ function renderMedicao(svcs, state) {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
           <h4 style="margin:0;font-size:13px;font-weight:700">TRATATIVAS</h4>
           <span style="background:#3c4a45;color:#fff;font-size:10px;font-weight:700;border-radius:12px;padding:2px 8px;font-family:var(--font-mono)">${state.selecionados.length} sel.</span>
+        </div>
+
+        <!-- Seletor em Massa de Sistema de Origem (CDU V5) -->
+        <div style="margin-bottom:16px;background:#f0fdf4;padding:10px;border-radius:8px;border:1px solid #bbf7d0">
+          <div style="font-weight:700;font-size:12px;margin-bottom:2px;color:#166534">🌐 Sistema de Origem (CDU-V5)</div>
+          <div style="font-size:11px;color:#15803d;margin-bottom:8px">Validação obrigatória para avanço.</div>
+          <select id="select-bulk-origem" class="select-input" style="width:100%;margin-bottom:8px;font-size:11px">
+            <option value="">Definir origem para selecionados...</option>
+            <option value="Eorder">Eorder (Distribuidora)</option>
+            <option value="Synergia">Synergia (Distribuidora Comercial)</option>
+            <option value="SacBt">SacBt (Distribuidora Emergencial)</option>
+            <option value="PDA">PDA (Terminal de Campo)</option>
+            <option value="Importação Massiva">Importação Massiva</option>
+          </select>
+          <button id="btn-apply-bulk-origem" class="btn-secondary" style="width:100%;font-size:11px">Gravar Origem nos Selecionados</button>
         </div>
 
         <div style="margin-bottom:18px">
@@ -1092,7 +1155,50 @@ function renderMedicao(svcs, state) {
     });
   });
 
-  // Modal CDU-02: Enviar Lote para Validação do Cliente
+  // Botão CDU V5: Gravar Sistema de Origem em Lote
+  container.querySelector('#btn-apply-bulk-origem')?.addEventListener('click', async () => {
+    const orig = container.querySelector('#select-bulk-origem').value;
+    if (!orig || state.selecionados.length === 0) return alert('Selecione os serviços e um Sistema de Origem válido.');
+    
+    let atualizados = 0;
+    for (const sid of state.selecionados) {
+      try {
+        const res = await fetch(`/api/servicos/${sid}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ origem_sistema: orig, usuario_nome: authService.usuarioLogado?.nome || 'Analista Fechamento' })
+        });
+        if (res.ok) atualizados++;
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    await store.carregarServicosAPI();
+    store.notifyToast(`Sistema de Origem '${orig}' gravado em ${atualizados} serviço(s)!`);
+  });
+
+  // Botão CDU V5: Aprovar Medição (Avanço com Bypass Comercial e Validação de Origem)
+  container.querySelector('#btn-aprovar-medicao')?.addEventListener('click', async () => {
+    if (state.selecionados.length === 0) return alert('Selecione pelo menos 1 serviço para aprovar.');
+    
+    // Alerta prévio informativo de itens sem origem
+    const semOrigem = svcs.filter(s => state.selecionados.includes(s.id) && (!s.origem || s.origem === 'NÃO VALIDADO' || s.origem === 'PENDENTE'));
+    if (semOrigem.length === state.selecionados.length) {
+      return alert(`Validação Obrigatória (CDU V5):\nNenhum dos ${semOrigem.length} serviços selecionados possui "Sistema de Origem" confirmado!\nDefina o Sistema de Origem na barra lateral antes de tramitar.`);
+    }
+
+    if (semOrigem.length > 0) {
+      if (!confirm(`Atenção: ${semOrigem.length} serviço(s) estão SEM Sistema de Origem e irão falhar na tramitação.\nOs outros ${state.selecionados.length - semOrigem.length} serão tramitados normalmente (Lote com Falha Parcial Inteligente).\n\nDeseja prosseguir?`)) {
+        return;
+      }
+    }
+
+    // Avança para status 3 (Aguardando Envio p/ Validação)
+    // Se o serviço for Comercial, o backend aplicará o Bypass Comercial para o Status 08!
+    await store.tramitarLoteAPI(state.selecionados, 3, 'Aprovação de Medição (Avanço de Fluxo)');
+  });
+
+  // Modal CDU-02: Enviar Lote para Validação do Cliente (com Falha Parcial Inteligente)
   container.querySelector('#btn-modal-cdu02')?.addEventListener('click', async () => {
     if (state.selecionados.length === 0) return alert('Selecione pelo menos 1 serviço para enviar em lote.');
     const sistemaFat = prompt('Informe o Sistema de Faturamento (ex: Eorder, Synergia, SacBt):', 'Eorder');
@@ -1108,16 +1214,29 @@ function renderMedicao(svcs, state) {
           servico_ids: state.selecionados,
           sistema_faturamento: sistemaFat,
           mes_medicao_inicial: mesInicial,
-          usuario_nome: 'Analista Fechamento'
+          usuario_nome: authService.usuarioLogado?.nome || 'Analista Fechamento'
         })
       });
       const data = await res.json();
       if (res.ok && data.status === 'sucesso') {
-        const novos = store.getState().servicos.map(s => state.selecionados.includes(s.id) ? { ...s, st: 5, sistema_faturamento: sistemaFat, mes_medicao_inicial: mesInicial } : s);
-        store.setState({ servicos: novos, selecionados: [] });
-        store.notifyToast(`CDU-02: ${data.tramitados} serviço(s) enviados para 05. Aguardando Validação do Cliente (Mês: ${mesInicial})!`);
+        await store.carregarServicosAPI();
+        const sucessosIds = data.sucessos_ids || [];
+        const aindaSelecionados = state.selecionados.filter(x => !sucessosIds.includes(x));
+        store.setState({ selecionados: aindaSelecionados });
+        
+        if (data.falhas > 0) {
+          const errosTexto = data.erros.map(e => `\n• ${e.id}: ${e.erro}`).join('');
+          alert(`⚠️ Processamento com Falha Parcial Inteligente (CDU V5):\n${data.tramitados} serviço(s) enviados com sucesso para 05. Validação.\n${data.falhas} serviço(s) falharam e continuam selecionados:${errosTexto}`);
+        } else {
+          store.notifyToast(`CDU-02: ${data.tramitados} serviço(s) enviados para 05. Aguardando Validação do Cliente (Mês: ${mesInicial})!`);
+        }
       } else {
-        alert(data.mensagem || 'Falha ao enviar lote.');
+        if (data.erros && data.erros.length > 0) {
+          const errosTexto = data.erros.map(e => `\n• ${e.id}: ${e.erro}`).join('');
+          alert(`⚠️ Falha ao enviar lote:\n${data.mensagem || ''}${errosTexto}`);
+        } else {
+          alert(data.mensagem || 'Falha ao enviar lote.');
+        }
       }
     } catch (e) {
       alert('Erro na requisição: ' + e);
@@ -1138,13 +1257,13 @@ function renderMedicao(svcs, state) {
       const res = await fetch('/api/servicos/lote/importar-rejeicoes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rejeicoes: rejeicoesPayload, usuario_nome: 'Analista Fechamento' })
+        body: JSON.stringify({ rejeicoes: rejeicoesPayload, usuario_nome: authService.usuarioLogado?.nome || 'Analista Fechamento' })
       });
       const data = await res.json();
       if (res.ok && data.status === 'sucesso') {
         const targetSt = destinoInput.toLowerCase() === 'operacao' ? 7 : 6;
-        const novos = store.getState().servicos.map(s => arr.includes(s.id) ? { ...s, st: targetSt } : s);
-        store.setState({ servicos: novos, selecionados: [] });
+        await store.carregarServicosAPI();
+        store.setState({ selecionados: [] });
         store.notifyToast(`CDU-06: ${data.processados} rejeição(ões) processada(s) com Roteamento Padrão para Status 0${targetSt}!`);
       } else {
         alert(data.mensagem || 'Falha ao importar rejeições.');
@@ -1157,9 +1276,8 @@ function renderMedicao(svcs, state) {
   container.querySelector('#btn-apply-bulk')?.addEventListener('click', () => {
     const st = container.querySelector('#select-bulk-status').value;
     if (!st || state.selecionados.length === 0) return alert('Selecione serviços e um novo status.');
-    const novos = state.servicos.map(s => state.selecionados.includes(s.id) ? { ...s, st: Number(st) } : s);
-    store.setState({ servicos: novos, selecionados: [] });
-    store.notifyToast(`Status alterado para ${state.selecionados.length} serviço(s)!`);
+    const desc = STATUS_DEFS[st]?.n || `Status 0${st}`;
+    store.tramitarLoteAPI(state.selecionados, Number(st), desc);
   });
 
   container.querySelector('#btn-enviar-pend-cosampa')?.addEventListener('click', () => {
@@ -1769,16 +1887,39 @@ function renderDrawer(state) {
 
         <!-- Seção 1: Dados do Serviço (GPM) -->
         <div style="background:#f7f9f8;padding:12px;border-radius:8px;border:1px solid #eef1f0">
-          <div style="font-weight:700;font-size:12px;margin-bottom:8px;color:#1c5f4b">📍 Informações da Atividade de Campo</div>
+          <div style="font-weight:700;font-size:12px;margin-bottom:8px;color:#1c5f4b;display:flex;justify-content:space-between;align-items:center">
+            <span>📍 Informações da Atividade de Campo</span>
+            <a href="https://gpm.cosampa.com.br/ordens/${s.num_servico || s.id.replace('SOB-', '')}" target="_blank" onclick="event.stopPropagation()" style="color:#0284c7;font-size:11px;font-weight:700;text-decoration:underline">🔗 Abrir no GPM</a>
+          </div>
           <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px">
             <div><b>Contrato:</b> ${s.ct}</div>
-            <div><b>Origem:</b> ${s.origem || 'PDA'}</div>
             <div><b>Tipo Atividade:</b> ${s.tp}</div>
             <div><b>Centro Serviço:</b> ${s.dep || '—'}</div>
             <div><b>Data Execução:</b> ${s.data || '—'}</div>
             <div><b>Incidência:</b> ${s.incidencia || '—'}</div>
+            <div><b>Obra/PEP:</b> ${s.pep || '—'}</div>
           </div>
-          <div style="margin-top:6px"><b>Local da Obra:</b> ${s.ob}</div>
+          
+          <!-- Validador de Sistema de Origem (CDU V5) -->
+          <div style="margin-top:10px;background:#fff;padding:8px 10px;border-radius:6px;border:1px solid ${s.origem ? '#bbf7d0' : '#fecaca'}">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <span style="font-weight:700;font-size:11.5px;color:#0f172a">🌐 Sistema de Origem (CDU-V5):</span>
+              ${s.origem ? `<span style="background:#dcfce7;color:#15803d;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">✓ ${s.origem}</span>` : `<span style="background:#fee2e2;color:#991b1b;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">⚠️ NÃO VALIDADO</span>`}
+            </div>
+            <div style="display:flex;gap:6px">
+              <select id="drawer-select-origem" class="select-input" style="flex:1;font-size:11px;height:30px">
+                <option value="">Selecione para alterar/validar...</option>
+                <option value="Eorder" ${s.origem==='Eorder'?'selected':''}>Eorder (Distribuidora)</option>
+                <option value="Synergia" ${s.origem==='Synergia'?'selected':''}>Synergia (Distribuidora Comercial)</option>
+                <option value="SacBt" ${s.origem==='SacBt'?'selected':''}>SacBt (Distribuidora Emergencial)</option>
+                <option value="PDA" ${s.origem==='PDA'?'selected':''}>PDA (Terminal de Campo)</option>
+                <option value="Importação Massiva" ${s.origem==='Importação Massiva'?'selected':''}>Importação Massiva</option>
+              </select>
+              <button id="drawer-btn-salvar-origem" class="btn-secondary" style="font-size:11px;padding:0 8px;height:30px">Salvar Origem</button>
+            </div>
+          </div>
+
+          <div style="margin-top:8px"><b>Local da Obra:</b> ${s.ob}</div>
           <div><b>Endereço:</b> ${s.endereco || s.ob}</div>
         </div>
 
@@ -1880,20 +2021,54 @@ function renderDrawer(state) {
 
   container.querySelector('#btn-close-drawer')?.addEventListener('click', () => store.setState({ drawerServicoId: null }));
 
+  container.querySelector('#drawer-btn-salvar-origem')?.addEventListener('click', async () => {
+    const val = container.querySelector('#drawer-select-origem').value;
+    if (!val) return alert('Selecione um Sistema de Origem válido.');
+    try {
+      const res = await fetch(`/api/servicos/${s.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ origem_sistema: val, usuario_nome: authService.usuarioLogado?.nome || 'Analista Fechamento' })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        s.origem = val;
+        s.origem_sistema = val;
+        await store.carregarServicosAPI();
+        store.notifyToast(`Sistema de Origem atualizado para: ${val}`);
+        store.setState({ drawerServicoId: s.id });
+      } else {
+        alert(data.mensagem || 'Erro ao salvar origem.');
+      }
+    } catch (e) {
+      alert('Erro na API: ' + e);
+    }
+  });
+
   container.querySelector('#drawer-btn-tramitar')?.addEventListener('click', async () => {
     const nxt = container.querySelector('#drawer-select-next-status').value;
     if (!nxt) return;
+
+    // Trava de Validação do Sistema de Origem (CDU V5)
+    if (s.st === 1 && Number(nxt) !== 2 && Number(nxt) !== 4) {
+      if (!s.origem || s.origem === 'NÃO VALIDADO' || s.origem === 'PENDENTE') {
+        return alert(`Validação Obrigatória (CDU V5):\nO campo "Sistema de Origem" não foi validado/confirmado!\nDefina o Sistema de Origem (Eorder, Synergia, SacBt, etc) no formulário acima antes de tramitar.`);
+      }
+    }
+
     try {
       const res = await fetch(`/api/servicos/${s.id}/tramitar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ novo_status_id: Number(nxt), usuario_nome: 'Analista Fechamento' })
+        body: JSON.stringify({ novo_status_id: Number(nxt), usuario_nome: authService.usuarioLogado?.nome || 'Analista Fechamento' })
       });
       const data = await res.json();
       if (res.ok && data.status === 'sucesso') {
-        const novos = store.getState().servicos.map(x => x.id === s.id ? { ...x, st: Number(nxt) } : x);
-        store.setState({ servicos: novos, drawerServicoId: null });
-        store.notifyToast(`SOB ${s.id} tramitada com sucesso para 0${nxt}!`);
+        const destinoFinal = data.novo_status || Number(nxt);
+        const bypassMsg = data.bypass_comercial ? ' (Bypass Comercial: Avançado direto para 08. Faturamento!)' : '';
+        store.notifyToast(`SOB ${s.id} tramitada com sucesso para 0${destinoFinal}!${bypassMsg}`);
+        await store.carregarServicosAPI();
+        store.setState({ drawerServicoId: null });
       } else {
         alert(data.mensagem || 'Falha ao tramitar serviço.');
       }

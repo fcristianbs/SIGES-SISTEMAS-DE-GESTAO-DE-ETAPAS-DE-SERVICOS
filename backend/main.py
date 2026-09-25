@@ -160,17 +160,19 @@ def obter_parametros_pendencias():
 
 @app.route("/api/servicos/lote/tramitar", methods=["POST"])
 def tramitar_lote():
+    """ CDU V5 - Bloco 4: Tramitação em Lote com Mecânica de Falha Parcial Inteligente """
     data = request.json or {}
     servico_ids = data.get("servico_ids", [])
     novo_status = data.get("novo_status_id")
     dados_extras = data.get("dados_extras", {})
-    usuario_nome = data.get("usuario_nome", "Analista")
+    usuario_nome = data.get("usuario_nome", "Analista Fechamento")
     usuario_email = data.get("usuario_email", "analista@cosampa.com.br")
 
     if not servico_ids or not novo_status:
         return jsonify({"status": "erro", "mensagem": "servico_ids e novo_status_id são obrigatórios"}), 400
 
     sucessos = 0
+    sucessos_ids = []
     erros = []
     for sid in servico_ids:
         if dados_extras:
@@ -178,16 +180,26 @@ def tramitar_lote():
         res = tramitar_servico_db(sid, int(novo_status), usuario_nome, usuario_email)
         if res.get("status") == "sucesso":
             sucessos += 1
+            sucessos_ids.append(sid)
         else:
             erros.append({"id": sid, "erro": res.get("mensagem")})
 
-    if sucessos > 0:
-        return jsonify({"status": "sucesso", "mensagem": f"{sucessos} serviços tramitados com sucesso", "erros": erros})
-    return jsonify({"status": "erro", "mensagem": "Falha ao tramitar lote", "erros": erros}), 400
+    status_resp = "sucesso" if sucessos > 0 else "erro"
+    codigo_http = 200 if (sucessos > 0 or not erros) else 400
+
+    return jsonify({
+        "status": status_resp,
+        "sucessos": sucessos,
+        "sucessos_ids": sucessos_ids,
+        "falhas": len(erros),
+        "erros": erros,
+        "total": len(servico_ids),
+        "mensagem": f"{sucessos} serviço(s) tramitado(s) com sucesso. {len(erros)} falha(s)."
+    }), codigo_http
 
 @app.route("/api/servicos/lote/enviar-validacao", methods=["POST"])
 def enviar_lote_validacao():
-    """ CDU-02: Consolidar e Enviar para Validação do Cliente """
+    """ CDU-02 / CDU V5 Bloco 4: Consolidar e Enviar para Validação com Falha Parcial Inteligente """
     data = request.json or {}
     ids = data.get("servico_ids", [])
     sistema_fat = data.get("sistema_faturamento", "Eorder")
@@ -198,21 +210,37 @@ def enviar_lote_validacao():
         return jsonify({"status": "erro", "mensagem": "Mês de Medição Inicial (MM/AAAA) é obrigatório."}), 400
 
     sucessos = 0
+    sucessos_ids = []
+    erros = []
     for sid in ids:
         res = tramitar_servico_db(sid, 5, usuario_nome)
         if res.get("status") == "sucesso":
             registrar_log_auditoria(sid, usuario_nome, "analista@cosampa.com.br", "sistema_faturamento", "", sistema_fat)
             registrar_log_auditoria(sid, usuario_nome, "analista@cosampa.com.br", "mes_medicao_inicial", "", mes_inicial)
             sucessos += 1
+            sucessos_ids.append(sid)
+        else:
+            erros.append({"id": sid, "erro": res.get("mensagem")})
 
     if sucessos > 0:
         desc_tech = {"lote_tamanho": len(ids), "sucessos": sucessos, "sistema_fat": sistema_fat, "mes_inicial": mes_inicial}
         desc_human = f"{usuario_nome} enviou em lote {sucessos} serviço(s) para validação do cliente (Sistema: {sistema_fat}, Mês: {mes_inicial})."
-        # O tramitar_servico_db ja gerou logs para cada ID especifico, entao o ID aqui pode ser LOTE
         from db import registrar_acao_global
         registrar_acao_global(usuario_nome, "analista@cosampa.com.br", "ENVIO_LOTE_VALIDACAO", "LOTE", desc_tech, desc_human)
 
-    return jsonify({"status": "sucesso", "tramitados": sucessos, "total": len(ids)})
+    status_resp = "sucesso" if sucessos > 0 else "erro"
+    codigo_http = 200 if (sucessos > 0 or not erros) else 400
+
+    return jsonify({
+        "status": status_resp,
+        "tramitados": sucessos,
+        "sucessos": sucessos,
+        "sucessos_ids": sucessos_ids,
+        "falhas": len(erros),
+        "erros": erros,
+        "total": len(ids),
+        "mensagem": f"{sucessos} serviço(s) enviado(s) para validação. {len(erros)} falha(s)."
+    }), codigo_http
 
 @app.route("/api/servicos/lote/importar-rejeicoes", methods=["POST"])
 def importar_rejeicoes_lote():

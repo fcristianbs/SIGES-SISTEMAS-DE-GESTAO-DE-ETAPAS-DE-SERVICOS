@@ -234,7 +234,8 @@ def buscar_servicos_db(contrato="todos", tipo="todos", status_id="todos", superv
                     # COLUNAS DO DICIONÁRIO DE DADOS EXPANDIDO (CDU.md)
                     "pep": r.get("cod_pep_obra") or f"PEP-{r.get('id')}",
                     "tdc": r.get("tdc") or f"TDC-{r.get('id')}",
-                    "origem": r.get("origem_sistema") or "PDA",
+                    "origem": r.get("origem_sistema") or "",
+                    "origem_sistema": r.get("origem_sistema") or "",
                     "incidencia": r.get("incidencia") or f"INC-{r.get('id')}",
                     "solicitante": r.get("solicitante") or "Solicitante GPM",
                     "id_cliente": r.get("id_cliente") or "CLI-100",
@@ -268,8 +269,10 @@ def buscar_servicos_db(contrato="todos", tipo="todos", status_id="todos", superv
 
 def tramitar_servico_db(servico_id, novo_status_id, usuario_nome="Analista Fechamento", usuario_email="analista@cosampa.com.br"):
     """
-    Tramita o status do serviço registrando Log de Auditoria (RN-01)
-    e aplicando o travamento rígido por pendências (RN-03).
+    Tramita o status do serviço registrando Log de Auditoria (RN-01),
+    aplicando o travamento rígido por pendências (RN-03),
+    a Validação Obrigatória do Sistema de Origem (CDU V5 Bloco 4)
+    e o Bypass do Fluxo Comercial (CDU V5 Bloco 4).
     """
     conn = get_db_connection()
     if not conn:
@@ -277,16 +280,36 @@ def tramitar_servico_db(servico_id, novo_status_id, usuario_nome="Analista Fecha
 
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT status_id FROM servicos WHERE id = %s", (servico_id,))
+            cursor.execute("SELECT id, num_servico, status_id, contrato, tipo_servico, tipo_obra, origem_sistema FROM servicos WHERE id = %s", (servico_id,))
             row = cursor.fetchone()
             if not row:
                 return {"status": "erro", "mensagem": "Serviço não encontrado"}
             
             status_atual = row["status_id"]
+            origem = (row.get("origem_sistema") or "").strip()
+            contrato = (row.get("contrato") or "").strip().upper()
+            tp_servico = (row.get("tipo_servico") or "").strip().upper()
+            tp_obra = (row.get("tipo_obra") or "").strip().upper()
 
             # RN-03: Bloqueio de avanço se estiver em pendência (só permite retornar para 1 ou 3)
             if status_atual in (2, 4, 6, 7) and novo_status_id not in (1, 3):
-                return {"status": "bloqueado", "mensagem": "RN-03: Bloqueado! Existem pendências ativas que impedem o avanço direto para validação/faturamento."}
+                return {"status": "bloqueado", "mensagem": f"Serviço {servico_id}: Bloqueado! Existem pendências ativas que impedem o avanço direto para validação/faturamento (RN-03)."}
+
+            # CDU V5 - Bloco 4: Validação Obrigatória de Origem
+            # Antes de avançar da Tela 01 (status 1) para próximos status operacionais (não sendo pendência 2 ou 4)
+            if status_atual == 1 and novo_status_id not in (2, 4):
+                if not origem or origem in ("NÃO VALIDADO", "PENDENTE"):
+                    return {
+                        "status": "bloqueado",
+                        "mensagem": f"Serviço {servico_id}: Validação Obrigatória do Sistema de Origem não confirmada! É necessário definir o Sistema de Origem (Eorder, Synergia, SacBt, etc) antes de avançar."
+                    }
+
+            # CDU V5 - Bloco 4: Bypass do Fluxo Comercial (Salto de Status 01 -> 08)
+            is_comercial = ("COMERCIAL" in contrato) or ("COMERCIAL" in tp_servico) or ("COMERCIAL" in tp_obra)
+            bypass_aplicado = False
+            if status_atual == 1 and novo_status_id == 3 and is_comercial:
+                novo_status_id = 8
+                bypass_aplicado = True
 
             cursor.execute("UPDATE servicos SET status_id = %s, updated_at = NOW() WHERE id = %s", (novo_status_id, servico_id))
             conn.commit()
@@ -294,12 +317,31 @@ def tramitar_servico_db(servico_id, novo_status_id, usuario_nome="Analista Fecha
         # RN-01: Log de Auditoria
         registrar_log_auditoria(servico_id, usuario_nome, usuario_email, "status_id", status_atual, novo_status_id)
 
+        # Se houve Bypass Comercial, registra no histórico / timeline
+        if bypass_aplicado:
+            try:
+                inserir_comentario_db(
+                    servico_id=servico_id,
+                    usuario_id=1,
+                    usuario_nome="Sistema SIGES",
+                    texto="⚡ [Bypass Comercial - CDU V5] Serviço de fluxo Comercial aprovado na Medição: pulou automaticamente para o Status 08 (Validado Aguardando Faturamento)."
+                )
+            except Exception as e_cmt:
+                print(f"[Aviso Timeline Bypass] {e_cmt}")
+
         # Log Global de Ações
-        desc_tech = {"de": status_atual, "para": novo_status_id}
+        desc_tech = {"de": status_atual, "para": novo_status_id, "bypass_comercial": bypass_aplicado}
         desc_human = f"{usuario_nome} tramitou o serviço {servico_id} do status 0{status_atual} para 0{novo_status_id}."
+        if bypass_aplicado:
+            desc_human += " (Bypass Comercial aplicado: direcionado direto para Status 08)"
         registrar_acao_global(usuario_nome, usuario_email, "TRAMITACAO_STATUS", servico_id, desc_tech, desc_human)
 
-        return {"status": "sucesso", "status_anterior": status_atual, "novo_status": novo_status_id}
+        return {
+            "status": "sucesso",
+            "status_anterior": status_atual,
+            "novo_status": novo_status_id,
+            "bypass_comercial": bypass_aplicado
+        }
     except Exception as e:
         print(f"[Erro Tramitação] {e}")
         return {"status": "erro", "mensagem": str(e)}

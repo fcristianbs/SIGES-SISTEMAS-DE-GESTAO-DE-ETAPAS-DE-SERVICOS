@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checklist Geral de Implementação — SIGES (CDU V5)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --primary-light: #e0f2fe;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --text-heading: #0f172a;
+      --border-color: #e2e8f0;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --success-bg: #dcfce7;
+      --success-text: #15803d;
+      --success-border: #86efac;
+      --warning-bg: #fef3c7;
+      --warning-text: #b45309;
+      --warning-border: #fde68a;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 9pt;
+      line-height: 1.4;
+      color: var(--text-main);
+      background-color: var(--bg-page);
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Screen Presentation Container */
+    @media screen {
+      body {
+        padding: 32px 16px;
+      }
+      .doc-wrapper {
+        max-width: 940px;
+        margin: 0 auto;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+        padding: 40px 48px;
+      }
+      .screen-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .btn-print {
+        background: var(--primary);
+        color: #ffffff;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        font-size: 9pt;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: background 0.15s ease;
+      }
+      .btn-print:hover {
+        background: var(--primary-dark);
+      }
+    }
+
+    /* Print Budgeting & Rules */
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 10mm 12mm 10mm 12mm;
+        @bottom-right {
+          content: "Página " counter(page);
+          font-size: 7.5pt;
+          color: #64748b;
+          font-family: 'Inter', sans-serif;
+        }
+      }
+      body {
+        background-color: #ffffff;
+        font-size: 8.5pt;
+        line-height: 1.34;
+      }
+      .doc-wrapper {
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        max-width: 100% !important;
+      }
+      .screen-actions {
+        display: none !important;
+      }
+    }
+
+    .header-banner {
+      border-bottom: 2.5px solid var(--primary);
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    .header-title {
+      font-size: 16pt;
+      font-weight: 800;
+      color: var(--text-heading);
+      margin: 0;
+      letter-spacing: -0.4px;
+    }
+
+    .header-subtitle {
+      font-size: 9pt;
+      color: var(--primary);
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .header-meta {
+      font-size: 8pt;
+      color: var(--text-muted);
+      text-align: right;
+      font-weight: 500;
+      line-height: 1.35;
+    }
+
+    .header-meta strong {
+      color: var(--text-heading);
+    }
+
+    h1 {
+      font-size: 13.5pt;
+      color: var(--text-heading);
+      border-bottom: 1.5px solid var(--border-color);
+      padding-bottom: 4px;
+      margin-top: 14px;
+      margin-bottom: 8px;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    h2 {
+      font-size: 10.5pt;
+      color: var(--primary-dark);
+      background: var(--primary-light);
+      border-left: 3.5px solid var(--primary);
+      padding: 4px 10px;
+      margin-top: 14px;
+      margin-bottom: 6px;
+      border-radius: 0 4px 4px 0;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    h3 {
+      font-size: 9pt;
+      color: var(--text-heading);
+      margin-top: 10px;
+      margin-bottom: 4px;
+      font-weight: 700;
+      border-bottom: 1px dashed #cbd5e1;
+      padding-bottom: 3px;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    p {
+      margin: 3px 0 5px 0;
+    }
+
+    ul {
+      margin: 2px 0 6px 18px;
+      padding: 0;
+    }
+
+    ul ul {
+      margin: 2px 0 4px 16px;
+    }
+
+    ol {
+      margin: 2px 0 6px 18px;
+      padding: 0;
+    }
+
+    li {
+      margin-bottom: 2.5px;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', Consolas, "Courier New", monospace;
+      font-size: 7.5pt;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 1px 4px;
+      border-radius: 3px;
+      border: 1px solid #cbd5e1;
+    }
+
+    strong {
+      font-weight: 600;
+      color: var(--text-heading);
+    }
+
+    a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 7pt;
+      font-weight: 700;
+      padding: 1.5px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.2px;
+      vertical-align: 1px;
+      text-transform: uppercase;
+    }
+
+    .badge-done {
+      background-color: var(--success-bg);
+      color: var(--success-text);
+      border: 1px solid var(--success-border);
+    }
+
+    .badge-pending {
+      background-color: var(--warning-bg);
+      color: var(--warning-text);
+      border: 1px solid var(--warning-border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8pt;
+      margin: 8px 0 12px 0;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      background: #ffffff;
+    }
+
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 5px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background-color: #0f172a;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 8pt;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--border-color);
+      margin: 12px 0;
+    }
+
+    .footer-print {
+      margin-top: 18px;
+      border-top: 1px solid #cbd5e1;
+      padding-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7.5pt;
+      color: var(--text-muted);
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+  </style>
+</head>
+<body>
+  <div class="doc-wrapper">
+    <div class="screen-actions">
+      <button class="btn-print" onclick="window.print()">
+        🖨️ Imprimir / Salvar PDF
+      </button>
+    </div>
+
+    <div class="header-banner">
+      <div>
+        <div class="header-title">SIGES — Checklist de Implementação</div>
+        <div class="header-subtitle">Confronto Técnico & Homologação com Especificação CDU V5</div>
+      </div>
+      <div class="header-meta">
+        <div><strong>Status Oficial:</strong> Blocos 1, 2, 3 e 4 Concluídos [x]</div>
+        <div><strong>Data de Emissão:</strong> 25/09/2026</div>
+        <div><strong>Versão:</strong> 5.0 (Oficial)</div>
+      </div>
+    </div>
+
+    <h1>📋 Checklist Geral de Implementação — SIGES (Baseado no CDU V5)</h1>
+<p>Este documento consolida o <strong>checklist completo de tudo o que foi implementado até o momento</strong> no projeto SIGES, confrontando cada função e componente técnico desenvolvido com as exigências e regras de negócio especificadas no <strong>CDU V5 (Documento de Casos de Uso Mais Recente)</strong>.</p>
+<p>Para cada item implementado, é detalhado:
+1. <strong>Identificação e Status:</strong> Se está concluído e homologado ou planejado.
+2. <strong>Função / Componente Técnico:</strong> Nome da função no código, rota e arquivo de localização (<code>backend/main.py</code>, <code>backend/db.py</code> ou <code>frontend/app.js</code>).
+3. <strong>O que foi feito na prática:</strong> Como a funcionalidade foi construída e se comporta no sistema.
+4. <strong>O que ela deveria fazer (Regra do CDU V5):</strong> O requisito formal de engenharia e negócio segundo a especificação.</p>
+<hr />
+<h2>📑 Índice dos Módulos</h2>
+<ul>
+<li><a href="#1-fundações-de-infraestrutura-e-performance-bloco-1">1. Fundações de Infraestrutura e Performance (Bloco 1)</a></li>
+<li><a href="#2-motor-colaborativo-timeline-e-notificações-bloco-2">2. Motor Colaborativo: Timeline e Notificações (Bloco 2)</a></li>
+<li><a href="#3-módulo-de-pendências-hierarquia-e-sla-bloco-3">3. Módulo de Pendências, Hierarquia e SLA (Bloco 3)</a></li>
+<li><a href="#4-fluxos-de-tela-01-e-lotes-inteligentes-bloco-4">4. Fluxos de Tela 01 e Lotes Inteligentes (Bloco 4)</a></li>
+<li><a href="#5-perfis-de-tela-layouts-dinâmicos-e-rbac-cdu-v4--v5">5. Perfis de Tela, Layouts Dinâmicos e RBAC (CDU V4 / V5)</a></li>
+<li><a href="#6-auditoria-global-e-ingestão-de-dados-cdu-v3--v5">6. Auditoria Global e Ingestão de Dados (CDU V3 / V5)</a></li>
+<li><a href="#7-roadmap-comparativo-o-que-falta-implementar-bloco-5">7. Roadmap Comparativo: O que falta implementar (Bloco 5)</a></li>
+</ul>
+<hr />
+<h2>1. Fundações de Infraestrutura e Performance (Bloco 1)</h2>
+<p><em>Objetivo no CDU V5: Suportar bases massivas do GPM com centenas de milhares de linhas sem travamento de tela ou latência de carregamento (Item 5.1 do CDU V5).</em></p>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 1.1 Paginação Server-Side e Lazy Loading</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: <code>listar_servicos()</code> via rota <code>GET /api/servicos</code> e consulta parametrizada em <code>buscar_servicos_db()</code>.</li>
+<li>Frontend: <code>Store.carregarServicosAPI()</code> e renderizador visual <code>renderPaginador()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>O backend aceita os parâmetros <code>skip</code> e <code>limit</code> (padrão 10 itens por página), executa uma consulta SQL com <code>LIMIT %s OFFSET %s</code> e um <code>COUNT(*)</code> paralelo com os mesmos filtros ativos.</li>
+<li>Retorna o formato estruturado <code>{ "data": [ ... ], "total": X }</code>.</li>
+<li>O frontend renderiza controles de paginação numérica com botões anterior/próximo e atalhos rápidos.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>O grid dinâmico principal deve carregar e processar bases massivas com centenas de milhares de linhas sem congelamento do navegador, renderizando sob demanda apenas a fatia solicitada (Item 5.1).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 1.2 Persistência de Sessão no Frontend</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Frontend: <code>Store.constructor()</code> e métodos de sincronização com chave <code>localStorage.getItem('siges_filtros_v1')</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Todos os estados voláteis da interface — contrato ativo, filtros de busca, cargo/responsável selecionado, página atual e ordenação da tabela — são gravados em tempo real no <code>localStorage</code>.</li>
+<li>Ao carregar a página ou pressionar <strong>F5</strong>, o estado é reconstituído sem que o usuário perca seu contexto de trabalho.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Reter parâmetros de navegação (filtros, ordenações, largura de colunas e paginação corrente) ao alternar telas ou recarregar a janela, garantindo ergonomia operacional contínua (Item 5.1).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 1.3 Integridade dos Indicadores do Dashboard (KPIs Globais)</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: Rota <code>GET /api/dashboard/kpis</code> mapeada em <code>backend/main.py</code>.</li>
+<li>Frontend: <code>Store.carregarKPIsAPI()</code> e renderização dos cards e gráficos em <code>renderGerencial()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>A rota de KPIs executa agregações completas no MySQL (<code>COUNT(*)</code> agrupado por <code>status_id</code>), desacoplada da paginação de 10 linhas da tabela.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>O card "Serviços na Esteira" e os gráficos analíticos devem refletir a totalidade real dos serviços da filial/contrato, garantindo visão gerencial precisa mesmo com lazy loading na listagem.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 1.4 Desacoplamento de Chaves: <code>num_servico</code> vs <code>tdc</code></h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Banco de Dados: Colunas <code>num_servico</code> e <code>tdc</code> tratadas como identificadores independentes em <code>backend/db.py</code>.</li>
+<li>Frontend: Colunas separadas nas tabelas e no Drawer de detalhes <code>renderDrawer()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Tratamento individual das duas chaves, suportando relações em que múltiplos serviços compartilham o mesmo TDC ou vice-versa.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li><code>num_servico</code> (Chave Primária GPM) e <code>tdc</code> (Chave Distribuidora) possuem independência estrutural e suportam relações de cardinalidade 1:N, 1:1, N:1 e N:M, servindo o TDC para cross-reference com sistemas externos (Item 1.1).</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>2. Motor Colaborativo: Timeline e Notificações (Bloco 2)</h2>
+<p><em>Objetivo no CDU V5: Centralizar a colaboração humana ativa entre Medição, Operação, Validação e Faturamento em histórico imutável (Item 1.0 e 5.2 do CDU V5).</em></p>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 2.1 Modelagem da Timeline e Persistência Imutável</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: <code>inserir_comentario_db()</code> e <code>buscar_comentarios_db()</code>.</li>
+<li>Rotas: <code>GET /api/servicos/&lt;id&gt;/comentarios</code> e <code>POST /api/servicos/&lt;id&gt;/comentarios</code> em <code>backend/main.py</code>.</li>
+<li>Banco de Dados: Tabela <code>comentarios_servico</code> contendo <code>servico_id</code>, <code>usuario_id</code>, <code>usuario_nome</code>, <code>texto</code> e <code>created_at</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>O backend grava comentários com chave estrangeira para o serviço e o usuário logado, com carimbo automático de data/hora (timestamp). Não há rota de edição ou exclusão de comentários.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Registrar histórico cronológico e centralizado imutável de interações humanas associando autor, perfil e data/hora, nunca permitindo deleção lógica ou física (Item 1.0 e 5.2).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 2.2 Interface da Timeline no Painel Lateral (Drawer)</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Frontend: Container <code>#timeline-container</code> dentro de <code>renderDrawer()</code> e chamadas assíncronas no evento de abertura da SOB.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Ao clicar em qualquer serviço na tabela, o Drawer abre e dispara imediatamente o fetch para a rota de comentários daquela SOB específica, exibindo indicador de loading e mensagens em formato de balões com autor e horário.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Exibir o histórico de discussões e anotações técnicas em formato de chat/timeline dentro do detalhe do serviço (Item 1.0 e 1.2).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 2.3 Formatador Visual de Menções (<code>@usuario</code>)</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Frontend: Expressão regular no parser de texto do comentário em <code>frontend/app.js</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Textos com o padrão <code>@nome_usuario</code> são capturados e renderizados com tag visual estilizada (badge com cor destacada).</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Suportar marcações de usuários (<code>@usuario</code>) para identificação de destinatários e direcionamento de notificações (Item 1.0).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 2.4 Segregação Estrita de Conversas por SOB</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Frontend e Backend: Chave de filtro <code>servico_id</code> obrigatória em <code>buscar_comentarios_db()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Limpeza obrigatória do container de timeline ao alternar entre serviços, garantindo que o histórico de uma SOB nunca apareça em outra.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Garantir a integridade do dossiê do serviço, evitando que apontamentos técnicos vazem entre ordens de serviço distintas.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>3. Módulo de Pendências, Hierarquia e SLA (Bloco 3)</h2>
+<p><em>Objetivo no CDU V5: Regras rígidas para o trabalho de campo, controle de prazos e fluxo hierárquico na Tela 02 (Item 1.1, 2 - Tela 02 e Seção 3 do CDU V5).</em></p>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 3.1 Filtragem Hierárquica Automática por Perfil (RN-05)</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Frontend: Leitura de cargo em <code>AuthService.getPerfilAtivo()</code> e aplicação de filtro default no <code>Store.carregarServicosAPI()</code>.</li>
+<li>Backend: Cláusulas dinâmicas <code>WHERE s.supervisor = %s</code> ou <code>WHERE s.coordenador = %s</code> em <code>buscar_servicos_db()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Ao fazer login como Supervisor, o sistema pré-seleciona seu nome no filtro e restringe a grid às equipes subordinadas a ele. Ao logar como Coordenador, filtra por seus supervisores.</li>
+<li>Disponibilizada a opção "Todos" (Limpar Filtro) para consulta ampla.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Ao acessar a Tela de Pendências, o grid é pré-filtrado de forma automática com base no login e perfil da árvore de subordinação (Coordenador vê subordinados; Supervisor vê equipes diretas), com prerrogativa de desfiltração para consultas gerais (Item 2 - Tela 02).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 3.2 Tabelas Auxiliares Configuráveis de Pendências</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: <code>obter_parametros_pendencias_db()</code> e rota <code>GET /api/parametros/pendencias</code>.</li>
+<li>Frontend: <code>Store.carregarParametrosPendenciasAPI()</code> e renderização das opções em <code>renderMedicao()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Removidos todos os textos fixos (hardcodes) do frontend. As opções de desvios são carregadas diretamente do banco de dados MySQL (<code>itens_correcao_cosampa</code> e <code>itens_correcao_distribuidora</code>).</li>
+<li>Categorias organizadas:<ul>
+<li><strong>Cosampa:</strong> 1. Fotos (Baixa qualidade, Sem evidência); 2. Materiais (Aplicados/Retirados incorretamente); 3. Documentação (Sem Croqui, Croqui incorreto).</li>
+<li><strong>Distribuidora:</strong> Vozes não cadastradas, Serviço não despachado, Ordem já faturada.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>O backend e os componentes visuais devem ser alimentados diretamente pelas tabelas de parametrização lógica administráveis (Seção 3 do CDU V5).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 3.3 Tramitação em Lote e Individual para Pendências (Status 02 e 04)</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Frontend: <code>Store.tramitarLoteAPI()</code> vinculado aos botões <code>#btn-enviar-pend-cosampa</code> e <code>#btn-enviar-pend-distribuidora</code>.</li>
+<li>Backend: Rota <code>POST /api/servicos/lote/tramitar</code> em <code>backend/main.py</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>O operador pode selecionar um ou dezenas de serviços na Medição, marcar os itens de correção correspondentes e enviá-los em lote para o Status <code>02</code> (Pendências Cosampa) ou <code>04</code> (Pendências Distribuidora). O serviço é retirado da Medição e passa a constar na Tela 02.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>"Gerar Pendência Cosampa" envia para <code>02. PENDENCIAS OPERACIONAIS COSAMPA</code> e "Gerar Pendência Distribuidora" para <code>04. PENDENCIAS DISTRIBUIDORA</code>. A Pendência Cosampa tem prioridade em caso de apontamento duplo (Item 2 - Tela 01 e Matriz 4.1).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 3.4 Bloqueio com Trava de Reprogramação e Alerta de SLA</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Frontend: Eventos e validações no Drawer de saneamento em <code>renderPendencias()</code> e <code>renderDrawer()</code>.</li>
+<li>Backend: Persistência em <code>atualizar_dados_servico_db()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Inclusão do checkbox "Necessita Reprogramar Visitada em Campo". Caso marcado, o botão de salvar trava e emite alerta visual exigindo o preenchimento da <code>data_programacao</code>.</li>
+<li>Cálculo dinâmico de dias decorridos exibido no badge: ⏳ <strong>Atraso SLA: X dias</strong>.</li>
+<li>Botão de retorno tramita o serviço sanado de volta para <code>01. AGUARDANDO CONFERENCIA</code>.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Checkbox "Necessita Reprogramar" exige obrigatoriamente a indicação de uma nova Data de Programação para retorno da equipe. Monitoramento de SLA comparando data de execução com data de entrada em pendência (Item 2 - Tela 02).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 3.5 Ordenação Temporal nas Pendências</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: Cláusula <code>ORDER BY COALESCE(s.dta_exec_srv, s.created_at) DESC</code> em <code>buscar_servicos_db()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Os serviços na tela de pendências são ordenados do mais recente para o mais antigo com fallback seguro para colunas existentes no schema (<code>dta_exec_srv</code> / <code>created_at</code>).</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Facilitar a triagem e o tratamento das pendências mais urgentes e recentes pela supervisão técnica.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>4. Fluxos de Tela 01 e Lotes Inteligentes (Bloco 4)</h2>
+<p><em>Objetivo no CDU V5: Blindagem de operações em lote com falha parcial, validação mandatória de origem, bypass comercial acelerado e correlação de serviços irmãos na Medição (Item 1.1, 2 - Tela 01 e 5.3 do CDU V5).</em></p>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 4.1 Validação Obrigatória do Sistema de Origem (Trava da Tela 01)</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: Trava em <code>tramitar_servico_db()</code> e <code>origem_sistema</code> retornada por <code>buscar_servicos_db()</code>.</li>
+<li>Frontend: Seletor de Origem com botão de salvamento no Drawer <code>renderDrawer()</code>, seletor em lote <code>#select-bulk-origem</code> em <code>renderMedicao()</code> e trava impeditiva no botão <code>#drawer-btn-tramitar</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Ao tentar tramitar qualquer serviço da Medição (status 01) para status operacional posterior sem que o campo <code>origem_sistema</code> esteja confirmado, o sistema bloqueia a ação e emite um alerta explícito exigindo a seleção da origem (ex: Eorder, Synergia, SacBt, PDA).</li>
+<li>Na tabela, serviços sem origem exibem o badge em destaque vermelho <code>⚠️ NÃO VALIDADO</code>. O Drawer e a barra lateral permitem salvar o Sistema de Origem individualmente ou em lote.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Antes de qualquer envio para o próximo status, o sistema exige a validação/confirmação do campo SISTEMA DE ORIGEM DO SERVIÇO, exibindo o valor default contido na tabela principal e permitindo correções em lote ou individuais (Item 1.1 e 2 - Tela 01).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 4.2 Bypass do Fluxo Comercial (Salto de Status Direto 01 -&gt; 08)</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: Cláusula de desvio condicional em <code>tramitar_servico_db()</code> acionada por <code>contrato</code>, <code>tipo_servico</code> ou <code>tipo_obra</code>.</li>
+<li>Injeção na Timeline: <code>inserir_comentario_db()</code> registrando aviso oficial de bypass na SOB.</li>
+<li>Frontend: Botão <code>#btn-aprovar-medicao</code> em <code>renderMedicao()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Ao aprovar a medição de serviços cujo contrato ou tipo seja Comercial, o backend intercepta o avanço e redireciona o serviço diretamente para o <strong>Status 08 (Validado Aguardando Faturamento)</strong>, sem passar pelo Status 03 (Fechamento).</li>
+<li>A Timeline do serviço registra um comentário automático auditável informando o salto de status. Serviços do fluxo Emergencial avançam normalmente para o Status 03.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Serviços do fluxo Emergencial aprovados avançam para <code>03. AGUARDANDO ENVIO PARA VALIDACAO</code>. Serviços do fluxo Comercial aprovados avançam diretamente para <code>08. VALIDADO AGUARDANDO AUTORIZACAO DE FATURAMENTO</code> (Item 2 - Tela 01 e Matriz de Transição 4.1).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 4.3 Lotes Inteligentes com Mecânica de Falha Parcial</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: Rotas <code>/api/servicos/lote/tramitar</code> e <code>/api/servicos/lote/enviar-validacao</code> retornando código HTTP 200 com resumo <code>{ "sucessos": X, "sucessos_ids": [...], "falhas": Y, "erros": [...] }</code>.</li>
+<li>Frontend: <code>Store.tramitarLoteAPI()</code> e modal <code>#btn-modal-cdu02</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Ao tramitar múltiplos serviços em lote, cada item é validado individualmente. Se 1 serviço de um lote de 100 apresentar erro (ex: falta de Sistema de Origem ou pendência não saneada), os 99 regulares são tramitados com sucesso no banco.</li>
+<li>O sistema não devolve erro 500 nem cancela o lote inteiro. Um sumário informativo exibe a quantidade de sucessos e lista detalhadamente os serviços com erro e seus motivos. Os serviços com falha continuam selecionados na tela para intervenção rápida do operador.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Caso haja qualquer registro inválido por pendências técnicas ou ausência de informações, o lote total não deve falhar. O sistema deve reter especificamente o registro inconsistente, exibindo sumário com os erros identificados e persistindo no fluxo de alteração todos os demais registros regulares (Item 5.3).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 4.4 Correlação de Serviços Irmãos e Hyperlinks GPM</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Frontend: Algoritmo de agrupamento e detecção em <code>renderMedicao()</code> e renderizador de linhas <code>renderDynamicTableRow()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>O sistema analisa em tempo real os serviços da tabela e identifica correlações que compartilham a mesma Incidência, mesmo PEP/Obra ou mesmo Id do Cliente.</li>
+<li>Serviços correlacionados recebem borda lateral azul destacada (<code>border-left: 3.5px solid #0284c7</code>), fundo suave e o badge <code>🔗 SOB Irmã</code> com tooltip detalhando o motivo do vínculo.</li>
+<li>As colunas de ID / Número da Ordem agora são <strong>hyperlinks azuis clicáveis</strong> (<code>target="_blank"</code>) com ícone de link externo, direcionando diretamente para a visualização da ordem no sistema legado GPM sem interromper a navegação da esteira.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Exibir correlação de Serviços Irmãos agrupando ordens por Incidência/Obra (Emergencial) ou Incidência/Cliente (Comercial), além de atalhos e links diretos clicáveis para abrir o módulo de ordens no GPM (Item 1.1 e 2 - Tela 01).</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>5. Perfis de Tela, Layouts Dinâmicos e RBAC (CDU V4 / V5)</h2>
+<p><em>Objetivo no CDU V5: Visualização customizável por usuário e segregação estrita de acesso baseada em perfis (Item 1 e 5.2 do CDU V5).</em></p>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 5.1 Gerenciamento de Perfis de Tela (Layouts de Colunas)</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: Rotas <code>/api/perfis_tela</code> (GET, POST, PUT), <code>/api/perfis_tela/todos</code> e <code>/api/usuarios/&lt;id&gt;/perfis_tela</code> em <code>backend/main.py</code>.</li>
+<li>Frontend: <code>renderToolbarPerfis()</code>, <code>renderDynamicTableHeaders()</code> e <code>renderDynamicTableRow()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Usuários podem selecionar perfis de visualização (ex: "Padrão", "Operacional", "Fechamento"), criar novos layouts de colunas, reordenar e salvar preferências individuais ou globais.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Permitir que os usuários criem, salvem, modifiquem e disponibilizem layouts personalizados de colunas para quaisquer outros usuários da plataforma, mantendo a estrutura padrão de identificação rápida (Item 1 e 1.1).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 5.2 Controle de Acesso e Permissões Baseadas em Papéis (RBAC)</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: Rota <code>POST /api/auth/login</code>, rotas de usuários <code>/api/usuarios</code> e perfis <code>/api/perfis</code> em <code>backend/main.py</code>.</li>
+<li>Frontend: Classe <code>AuthService</code> e modal administrativo <code>renderGestaoAcessos()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Autenticação com perfis definidos (Master, Analista de Fechamento, Coordenador, Supervisor). Telas laterais e botões de ação são habilitados ou bloqueados conforme a matriz de permissões.</li>
+<li>Inclusão do recurso de criação e <strong>edição de usuários existentes</strong> diretamente pela interface administrativa.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Restrição estrita de acesso baseada em perfis (RBAC). A navegação de supervisores deve ser voltada às telas operacionais de pendência, limitando transições financeiras e de faturamento a perfis gerenciais e analistas de fechamento (Item 5.2).</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>6. Auditoria Global e Ingestão de Dados (CDU V3 / V5)</h2>
+<p><em>Objetivo no CDU V5: Rastreabilidade imutável de todas as modificações e carga dinâmica de dados (Item 1.0 e 1.2 do CDU V5).</em></p>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 6.1 Motor Global de Auditoria Imutável (Audit Log)</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: <code>registrar_log_auditoria()</code> e <code>buscar_logs_auditoria()</code>.</li>
+<li>Rota: <code>GET /api/servicos/&lt;id&gt;/auditoria</code> em <code>backend/main.py</code>.</li>
+<li>Frontend: Seção de Logs de Auditoria no Drawer de detalhes.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Qualquer alteração de status ou atualização de campo dispara a gravação no MySQL com: data/hora, usuário, e-mail, campo alterado, valor anterior e novo valor.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Qualquer alteração realizada no sistema, em qualquer campo (mudanças de status, valores de input, justificativas), deve obrigatoriamente gerar um registro imutável de Log de Auditoria capturando data, hora, usuário, ID do serviço, campo, valor anterior e novo valor (Item 1.0 e 5.2).</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 6.2 Importador Dinâmico Inteligente (Auto-Sync com De-Para)</h3>
+<ul>
+<li><strong>Função / Componente Técnico:</strong><ul>
+<li>Backend: <code>processar_importacao_dinamica()</code> e rotas <code>/api/servicos/upload-temp</code>, <code>/api/servicos/pre-visualizar</code>, <code>/api/servicos/importar-dinamico</code>.</li>
+<li>Frontend: <code>renderWizardImportacao()</code>.</li>
+</ul>
+</li>
+<li><strong>O que foi feito:</strong><ul>
+<li>Assistente de importação de planilhas Excel/CSV com detecção de abas e cabeçalhos, mapeamento interativo de colunas De-Para, ignorando células vazias para não sobrescrever dados prévios e sincronizando com o banco.</li>
+</ul>
+</li>
+<li><strong>O que deveria fazer segundo o CDU V5:</strong><ul>
+<li>Permitir a ingestão massiva e padronizada de dados operacionais e de execução vindos de fontes externas ou do GPM (Item 1.2).</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>7. Roadmap Comparativo: O que falta implementar (Bloco 5)</h2>
+<p>Abaixo está o quadro de funcionalidades previstas no <strong>CDU V5</strong> que correspondem ao último bloco do plano de implementação e que <strong>ainda não foram implementadas</strong>:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Status</th>
+<th style="text-align: left;">Funcionalidade (CDU V5)</th>
+<th style="text-align: left;">O que a função deverá fazer</th>
+<th style="text-align: center;">Bloco Previsto</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">⏳ <strong><span class="badge badge-pending">⏳ PENDENTE</span></strong></td>
+<td style="text-align: left;"><strong>Telas Dedicadas de Faturamento e Conciliação (Telas 04 e 05)</strong></td>
+<td style="text-align: left;">Criar interfaces dedicadas para gerir status do <code>08</code> ao <code>13</code>, com inputs de <code>Data de Validação</code> e <code>Mês de Emissão</code> (Item 2 - Telas 04 e 05).</td>
+<td style="text-align: center;"><strong>Bloco 5</strong></td>
+</tr>
+<tr>
+<td style="text-align: center;">⏳ <strong><span class="badge badge-pending">⏳ PENDENTE</span></strong></td>
+<td style="text-align: left;"><strong>Evento Transacional de Conciliação e Snapshot "Relatório ANTES"</strong></td>
+<td style="text-align: left;">Processar planilhas de pagamento da Distribuidora com geração de snapshot pré-importação, direcionando serviços 100% batidos para <code>Finalizado</code> e divergências para <code>11</code> (Item 2 - Tela 05).</td>
+<td style="text-align: center;"><strong>Bloco 5</strong></td>
+</tr>
+<tr>
+<td style="text-align: center;">⏳ <strong><span class="badge badge-pending">⏳ PENDENTE</span></strong></td>
+<td style="text-align: left;"><strong>Comparador Dinâmico Bilateral (Status 11)</strong></td>
+<td style="text-align: left;">Interface comparando <code>Valor Realizado vs. Valor Pago</code> por atividade na conciliação, exigindo justificativa obrigatória na Timeline para tramitação (Item 2 - Tela 01, Status 11).</td>
+<td style="text-align: center;"><strong>Bloco 5</strong></td>
+</tr>
+<tr>
+<td style="text-align: center;">⏳ <strong><span class="badge badge-pending">⏳ PENDENTE</span></strong></td>
+<td style="text-align: left;"><strong>Gestão de Disputas e Pagamento a Menor (Status 12 e 13)</strong></td>
+<td style="text-align: left;">Controle de SLA com <code>Mês de Reapresentação da Medição</code> e acompanhamento de custódia de disputa contratual com o cliente (Item 2 - Tela 01, Status 12 e 13).</td>
+<td style="text-align: center;"><strong>Bloco 5</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>📊 Resumo Executivo de Progresso</h2>
+<ul>
+<li><strong>Bloco 1 (Fundações e Performance):</strong> 100% Concluído e Homologado.</li>
+<li><strong>Bloco 2 (Motor Colaborativo / Timeline):</strong> 100% Concluído e Homologado.</li>
+<li><strong>Bloco 3 (Módulo de Pendências / SLA / Hierarquia):</strong> 100% Concluído e Homologado.</li>
+<li><strong>Bloco 4 (Fluxos Tela 01 e Lotes Inteligentes):</strong> 100% Concluído e Homologado.</li>
+<li><strong>Transversais (Perfis de Tela, RBAC, Auditoria, Importador):</strong> 100% Concluído e Homologado.</li>
+<li><strong>Bloco 5 (Módulo Financeiro e Conciliação):</strong> Planejado (Aguardando liberação de desenvolvimento).</li>
+</ul>
+
+    <div class="footer-print">
+      <span>SIGES — Sistema de Gestão de Etapas de Serviços | Cosampa</span>
+      <span>Documento Técnico Oficial para Impressão e Auditoria Operacional</span>
+    </div>
+  </div>
+</body>
+</html>

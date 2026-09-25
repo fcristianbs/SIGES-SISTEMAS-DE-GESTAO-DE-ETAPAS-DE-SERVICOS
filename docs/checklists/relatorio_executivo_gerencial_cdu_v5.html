@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGES — Relatório Executivo de Funcionalidades (CDU V5)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --primary-light: #e0f2fe;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --text-heading: #0f172a;
+      --border-color: #e2e8f0;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --success-bg: #dcfce7;
+      --success-text: #15803d;
+      --success-border: #86efac;
+      --warning-bg: #fef3c7;
+      --warning-text: #b45309;
+      --warning-border: #fde68a;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 9pt;
+      line-height: 1.42;
+      color: var(--text-main);
+      background-color: var(--bg-page);
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Screen Presentation Container */
+    @media screen {
+      body {
+        padding: 32px 16px;
+      }
+      .doc-wrapper {
+        max-width: 940px;
+        margin: 0 auto;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+        padding: 40px 48px;
+      }
+      .screen-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .btn-print {
+        background: var(--primary);
+        color: #ffffff;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        font-size: 9pt;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: background 0.15s ease;
+      }
+      .btn-print:hover {
+        background: var(--primary-dark);
+      }
+    }
+
+    /* Print Budgeting & Rules */
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 10mm 12mm 10mm 12mm;
+        @bottom-right {
+          content: "Página " counter(page);
+          font-size: 7.5pt;
+          color: #64748b;
+          font-family: 'Inter', sans-serif;
+        }
+      }
+      body {
+        background-color: #ffffff;
+        font-size: 8.5pt;
+        line-height: 1.34;
+      }
+      .doc-wrapper {
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        max-width: 100% !important;
+      }
+      .screen-actions {
+        display: none !important;
+      }
+    }
+
+    .header-banner {
+      border-bottom: 2.5px solid var(--primary);
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    .header-title {
+      font-size: 16pt;
+      font-weight: 800;
+      color: var(--text-heading);
+      margin: 0;
+      letter-spacing: -0.4px;
+    }
+
+    .header-subtitle {
+      font-size: 9pt;
+      color: var(--primary);
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .header-meta {
+      font-size: 8pt;
+      color: var(--text-muted);
+      text-align: right;
+      font-weight: 500;
+      line-height: 1.35;
+    }
+
+    .header-meta strong {
+      color: var(--text-heading);
+    }
+
+    h1 {
+      font-size: 13.5pt;
+      color: var(--text-heading);
+      border-bottom: 1.5px solid var(--border-color);
+      padding-bottom: 4px;
+      margin-top: 14px;
+      margin-bottom: 8px;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    h2 {
+      font-size: 10.5pt;
+      color: var(--primary-dark);
+      background: var(--primary-light);
+      border-left: 3.5px solid var(--primary);
+      padding: 4px 10px;
+      margin-top: 14px;
+      margin-bottom: 6px;
+      border-radius: 0 4px 4px 0;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    h3 {
+      font-size: 9pt;
+      color: var(--text-heading);
+      margin-top: 10px;
+      margin-bottom: 4px;
+      font-weight: 700;
+      border-bottom: 1px dashed #cbd5e1;
+      padding-bottom: 3px;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    p {
+      margin: 3px 0 5px 0;
+    }
+
+    ul {
+      margin: 2px 0 6px 18px;
+      padding: 0;
+    }
+
+    ul ul {
+      margin: 2px 0 4px 16px;
+    }
+
+    ol {
+      margin: 2px 0 6px 18px;
+      padding: 0;
+    }
+
+    li {
+      margin-bottom: 2.5px;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', Consolas, "Courier New", monospace;
+      font-size: 7.5pt;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 1px 4px;
+      border-radius: 3px;
+      border: 1px solid #cbd5e1;
+    }
+
+    strong {
+      font-weight: 600;
+      color: var(--text-heading);
+    }
+
+    a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 7pt;
+      font-weight: 700;
+      padding: 1.5px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.2px;
+      vertical-align: 1px;
+      text-transform: uppercase;
+    }
+
+    .badge-done {
+      background-color: var(--success-bg);
+      color: var(--success-text);
+      border: 1px solid var(--success-border);
+    }
+
+    .badge-pending {
+      background-color: var(--warning-bg);
+      color: var(--warning-text);
+      border: 1px solid var(--warning-border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8pt;
+      margin: 8px 0 12px 0;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      background: #ffffff;
+    }
+
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 5px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background-color: #0f172a;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 8pt;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--border-color);
+      margin: 12px 0;
+    }
+
+    .footer-print {
+      margin-top: 18px;
+      border-top: 1px solid #cbd5e1;
+      padding-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7.5pt;
+      color: var(--text-muted);
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+  </style>
+</head>
+<body>
+  <div class="doc-wrapper">
+    <div class="screen-actions">
+      <button class="btn-print" onclick="window.print()">
+        🖨️ Imprimir / Salvar PDF
+      </button>
+    </div>
+
+    <div class="header-banner">
+      <div>
+        <div class="header-title">SIGES — Relatório Executivo de Funcionalidades</div>
+        <div class="header-subtitle">Visão Gerencial de Entregas, Regras de Negócio e Ganhos Operacionais</div>
+      </div>
+      <div class="header-meta">
+        <div><strong>Público:</strong> Gerência e Diretoria Operacional</div>
+        <div><strong>Status Oficial:</strong> Blocos 1, 2, 3 e 4 Concluídos [x]</div>
+        <div><strong>Data de Emissão:</strong> 25/09/2026 | Versão 5.0</div>
+      </div>
+    </div>
+
+    <h1>📊 Relatório Executivo de Funcionalidades — SIGES (Especificação CDU V5)</h1>
+<p>Este documento apresenta a <strong>visão executiva e gerencial de todas as entregas e funcionalidades implementadas no sistema SIGES</strong>, alinhadas aos objetivos de produtividade, controle operacional e conformidade com o <strong>Manual de Casos de Uso (CDU V5)</strong> da Cosampa.</p>
+<p>Para cada módulo do sistema, o relatório detalha:
+1. <strong>Funcionalidade Entregue:</strong> O que a solução proporciona no dia a dia da operação.
+2. <strong>Como Funciona na Prática:</strong> Como as equipes utilizam o recurso na esteira de serviços.
+3. <strong>Ganho Operacional e Regra de Negócio:</strong> O benefício direto para a gestão, segurança de dados e prevenção de perdas/glosas.</p>
+<hr />
+<h2>📑 Painel Geral dos Módulos Entregues</h2>
+<ul>
+<li><a href="#1-alta-performance-e-produtividade-operacional-bloco-1">1. Alta Performance e Produtividade Operacional (Bloco 1)</a></li>
+<li><a href="#2-comunicação-centralizada-e-dossiê-digital-imutável-bloco-2">2. Comunicação Centralizada e Dossiê Digital Imutável (Bloco 2)</a></li>
+<li><a href="#3-gestão-de-pendências-de-campo-hierarquia-e-controle-de-prazos-sla-bloco-3">3. Gestão de Pendências de Campo, Hierarquia e Controle de Prazos SLA (Bloco 3)</a></li>
+<li><a href="#4-automação-da-medição-bypass-comercial-e-lotes-inteligentes-bloco-4">4. Automação da Medição, Bypass Comercial e Lotes Inteligentes (Bloco 4)</a></li>
+<li><a href="#5-visualização-personalizada-e-segurança-de-perfis-de-acesso">5. Visualização Personalizada e Segurança de Perfis de Acesso</a></li>
+<li><a href="#6-auditoria-completa-e-importador-dinâmico-de-planilhas">6. Auditoria Completa e Importador Dinâmico de Planilhas</a></li>
+<li><a href="#7-visão-dos-próximos-passos-módulo-financeiro-e-conciliação-bloco-5">7. Visão dos Próximos Passos: Módulo Financeiro e Conciliação (Bloco 5)</a></li>
+</ul>
+<hr />
+<h2>1. Alta Performance e Produtividade Operacional (Bloco 1)</h2>
+<p><em>Objetivo Gerencial: Garantir estabilidade absoluta e velocidade para as equipes trabalharem com dezenas de milhares de ordens simultâneas sem lentidão ou travamento.</em></p>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 1.1 Navegação Fluida e Carregamento Rápido em Grandes Volumes</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>O sistema não tenta carregar todo o banco de dados de uma só vez na máquina do usuário. Em vez disso, traz instantaneamente páginas organizadas (10, 25 ou 50 itens) à medida que o operador navega, com busca rápida por qualquer critério.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Elimina travamentos de navegadores ao abrir bases pesadas do GPM, permitindo que medições com milhares de serviços sejam consultadas em frações de segundo.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 1.2 Memória de Trabalho Operacional (Filtros e Sessão Salvos Automaticamente)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Quando o colaborador aplica filtros (por contrato, supervisor, status ou ordenação), o sistema memoriza essas preferências no navegador.</li>
+<li>Se a página for atualizada (F5) ou fechada acidentalmente, o usuário volta exatamente para a mesma tela e filtros onde parou.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Elimina o retrabalho constante de refazer filtros a cada consulta, aumentando a ergonomia e a velocidade diária das equipes.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 1.3 Indicadores Confiáveis em Tempo Real (Painel de KPIs no Topo)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Os cartões de indicadores no topo da tela ("Serviços na Esteira", "Pendências Cosampa", etc.) calculam a soma real de todas as ordens existentes no contrato, independentemente da quantidade exibida na tabela.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Garante aos gestores uma visão macro precisa do volume de serviços em cada fase, sem distorção dos números durante a navegação.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 1.4 Identificação Independente de Ordens (Número da Ordem GPM vs. Chave TDC Distribuidora)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>O sistema mantém de forma clara e separada o identificador da ordem no GPM e a chave de referência da Distribuidora (TDC).</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Permite cruzar dados com sistemas externos e identificar casos em que múltiplas ordens pertencem ao mesmo TDC, evitando duplicidade e inconsistências cadastrais.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>2. Comunicação Centralizada e Dossiê Digital Imutável (Bloco 2)</h2>
+<p><em>Objetivo Gerencial: Acabar com a perda de informações em trocas de e-mails ou mensagens informais, centralizando a discussão de cada ordem em um histórico oficial auditável.</em></p>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 2.1 Linha do Tempo Imutável por Serviço (Dossiê Histórico)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Cada ordem de serviço possui uma linha do tempo onde colaboradores podem registrar anotações técnicas, orientações de campo e motivos de aprovação ou recusa.</li>
+<li>Cada mensagem grava automaticamente o nome do autor, seu perfil e data/hora exata. Ninguém pode apagar ou alterar uma anotação após registrada.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Cria uma memória técnica inviolável para a empresa, fundamental para respaldar justificativas perante a Distribuidora ou auditorias internas.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 2.2 Painel Lateral de Análise Rápida (Gaveta de Detalhes)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Ao clicar em qualquer serviço, uma gaveta lateral se abre suavemente exibindo o histórico de mensagens, dados cadastrais e logs, sem tirar o usuário da lista principal de trabalho.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>O operador analisa o caso, responde à equipe e toma a decisão sem perder o contexto da esteira de serviços.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 2.3 Menções Diretas a Colaboradores (@Nome)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Ao redigir uma observação com <code>@nome_do_colaborador</code>, o sistema formata o nome com destaque visual para identificar claramente para quem aquela instrução foi direcionada.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Facilita a comunicação dirigida entre quem está na área técnica de medição e a supervisão responsável pelo contrato.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 2.4 Sigilo e Separação Estrita de Dossiês por Ordem</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>O histórico de mensagens pertence estritamente àquela ordem específica. Ao alternar entre serviços, a tela limpa imediatamente os dados anteriores e carrega apenas o dossiê da ordem selecionada.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Segurança da informação: garantia de que orientações de uma obra ou cliente nunca se misturem com as de outra.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>3. Gestão de Pendências de Campo, Hierarquia e Controle de Prazos SLA (Bloco 3)</h2>
+<p><em>Objetivo Gerencial: Dar visibilidade e controle rígido sobre ordens travadas, cobrando prazos de retorno e orientando as equipes de campo de forma padronizada.</em></p>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 3.1 Visão Hierárquica Inteligente por Cargo (Supervisores e Coordenadores)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Ao acessar a Tela de Pendências, o sistema reconhece quem está logado: o Supervisor já vê de imediato os serviços de suas equipes; o Coordenador vê as pendências dos seus supervisores. Há um botão para limpar os filtros quando desejar uma visão global.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Foco imediato no que interessa: cada gestor abre o sistema já focado nas pendências sob sua alçada direta.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 3.2 Catálogo Padronizado de Motivos de Pendência (Fim das Justificativas Genéricas)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Ao apontar uma falha, o operador seleciona motivos pré-cadastrados no sistema, divididos em categorias claras:<ul>
+<li><strong>Cosampa:</strong> Problemas com fotos (baixa qualidade, falta de evidência), materiais (aplicados/retirados incorretamente) ou documentação (sem croqui ou croqui divergente).</li>
+<li><strong>Distribuidora:</strong> Vozes não cadastradas, serviço não despachado ou ordem já faturada.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Padronização de dados para geração de relatórios de causas-raiz de falhas, identificando necessidades de treinamento em campo.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 3.3 Tratamento Ágil de Serviços em Lote para Pendências</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>O analista pode selecionar dezenas de serviços com a mesma irregularidade e enviá-los de uma só vez para o fluxo de correção da Cosampa (Status 02) ou para a Distribuidora (Status 04).</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Agilidade no saneamento em massa, limpando a esteira principal e direcionando as pendências para quem deve resolvê-las.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 3.4 Trava de Reprogramação de Campo e Alerta Visual de Atraso (SLA)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Se a pendência exigir nova visita da equipe ao local do serviço, o sistema obriga a indicação da <strong>Nova Data de Programação</strong> antes de permitir salvar.</li>
+<li>Um marcador visual em destaque amarelo/vermelho alerta: ⏳ <strong>Atraso SLA: X dias</strong>.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Impede que serviços fiquem esquecidos sem previsão de visita, permitindo aos coordenadores monitorar prazos antes do vencimento contratual.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 3.5 Fila de Prioridade por Urgência Temporal</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>As pendências são ordenadas automaticamente das mais recentes para as mais antigas, facilitando a rápida triagem operacional diária.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Resolução prioritária das ocorrências recentes para evitar o acúmulo de gargalos operacionais.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>4. Automação da Medição, Bypass Comercial e Lotes Inteligentes (Bloco 4)</h2>
+<p><em>Objetivo Gerencial: Acelerar a liberação de serviços para faturamento, blindando a empresa contra glosas por falta de dados e eliminando retrabalhos manuais.</em></p>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 4.1 Trava Obrigatória de Sistema de Origem (Blindagem contra Glosas)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Nenhuma ordem pode sair da etapa de medição sem que o <strong>Sistema de Origem</strong> (ex: Eorder, Synergia, SacBt, PDA) esteja confirmado. Ordens sem validação recebem o aviso em vermelho <code>⚠️ NÃO VALIDADO</code>.</li>
+<li>O sistema permite validar o sistema de origem individualmente ou para dezenas de serviços em lote com um único clique.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Prevenção de glosas: a Distribuidora exige o canal de origem correto para aceitar as medições. O sistema impede que ordens incompletas cheguem ao faturamento.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 4.2 Aceleração do Fluxo Comercial (Salto Inteligente para Faturamento)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Ordens de contratos e serviços do tipo Comercial aprovadas na medição não precisam passar pela etapa burocrática de fechamento de campo (Status 03).</li>
+<li>O sistema direciona essas ordens diretamente para o <strong>Status 08 (Validado Aguardando Faturamento)</strong>, gerando automaticamente uma nota de auditoria na linha do tempo. Ordens do fluxo Emergencial continuam seguindo o fluxo padrão.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Redução substancial do tempo entre a execução do serviço comercial e a sua disponibilização para emissão de nota fiscal e recebimento.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 4.3 Processamento em Lote com Tolerância a Falhas Pontuais (Lotes Inteligentes)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Ao tramitar 100 serviços de uma vez, se 2 deles apresentarem inconsistências (ex: falta de origem ou pendência em aberto), o sistema processa e aprova com sucesso os 98 regulares.</li>
+<li>O sistema emite um relatório na tela indicando exatamente quais foram os 2 serviços rejeitados e o motivo, mantendo-os selecionados para rápida correção.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Acaba com o travamento geral de lotes. A operação não perde tempo reprocessando tudo do zero por causa de falhas pontuais.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 4.4 Identificação de Serviços Irmãos e Acesso Direto ao GPM Legado</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>O sistema identifica e destaca visualmente ordens que pertencem à mesma Incidência, à mesma Obra/PEP ou ao mesmo Cliente, aplicando uma borda azul e o indicador <code>🔗 SOB Irmã</code>.</li>
+<li>Os números das ordens funcionam como links azuis: ao clicar, abre diretamente a tela do GPM original em outra aba.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Evita medições duplicadas ou incompletas de uma mesma obra, permitindo ao analista conferir o histórico da equipe no GPM em 1 clique.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>5. Visualização Personalizada e Segurança de Perfis de Acesso</h2>
+<p><em>Objetivo Gerencial: Proporcionar telas sob medida para cada tipo de colaborador, garantindo que cada um veja apenas o que é pertinente à sua função.</em></p>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 5.1 Painéis e Layouts Customizáveis por Usuário</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Cada operador ou gestor pode escolher quais colunas deseja ver na tabela, reorganizar a ordem das informações e salvar seus modelos favoritos (ex: "Visão Operacional", "Visão Financeira").</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Produtividade: elimina a poluição visual de colunas irrelevantes para a rotina diária de cada departamento.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 5.2 Segurança e Alçadas de Acesso por Cargo (RBAC)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Permissões estritas conforme o perfil profissional:<ul>
+<li><strong>Supervisores e Coordenadores:</strong> Acesso focado no saneamento de campo e liberação de pendências.</li>
+<li><strong>Analistas de Fechamento e Gestores:</strong> Autorização exclusiva para aprovar medições, validar faturamento e configurar o sistema.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Governança corporativa e compliance: evita que colaboradores sem alçada aprovem valores ou façam transições financeiras indevidas.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>6. Auditoria Completa e Importador Dinâmico de Planilhas</h2>
+<p><em>Objetivo Gerencial: Rastreabilidade total sobre qualquer ação tomada no sistema e facilidade para carregar dados externos sem intervenção da equipe de TI.</em></p>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 6.1 Histórico de Auditoria Imutável (Quem fez, o que fez e quando)</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Toda e qualquer ação realizada (alteração de status, preenchimento de campos, aprovações ou rejeições) é gravada permanentemente com data, hora, nome e e-mail do colaborador, com o valor anterior e o novo valor.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Transparência e auditoria interna: segurança jurídica e operacional para apuração de divergências.</li>
+</ul>
+</li>
+</ul>
+<h3><span class="badge badge-done">✓ CONCLUÍDO</span> 6.2 Assistente de Importação Inteligente de Planilhas</h3>
+<ul>
+<li><strong>Como Funciona na Prática:</strong><ul>
+<li>Permite carregar planilhas Excel ou CSV com identificação automática de cabeçalhos e associação visual das colunas. Células em branco não apagam dados já salvos no sistema.</li>
+</ul>
+</li>
+<li><strong>Ganho Operacional / Objetivo:</strong><ul>
+<li>Ingestão ágil de planilhas de campo ou da distribuidora em minutos, eliminando a digitação manual de serviços.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>7. Visão dos Próximos Passos: Módulo Financeiro e Conciliação (Bloco 5)</h2>
+<p>Abaixo está o quadro das funcionalidades planejadas para o <strong>Bloco 5</strong>, que completará o ciclo ponta a ponta do faturamento até o recebimento:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Status</th>
+<th style="text-align: left;">Módulo / Funcionalidade</th>
+<th style="text-align: left;">Objetivo Operacional e de Negócio</th>
+<th style="text-align: center;">Etapa Prevista</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">⏳ <strong><span class="badge badge-pending">⏳ PLANEJADO</span></strong></td>
+<td style="text-align: left;"><strong>Telas de Gestão de Faturamento (Telas 04 e 05)</strong></td>
+<td style="text-align: left;">Telas dedicadas para fechamento com a Distribuidora, controle de datas de validação e emissão de notas fiscais (Status 08 ao 13).</td>
+<td style="text-align: center;"><strong>Bloco 5</strong></td>
+</tr>
+<tr>
+<td style="text-align: center;">⏳ <strong><span class="badge badge-pending">⏳ PLANEJADO</span></strong></td>
+<td style="text-align: left;"><strong>Conciliação Automática de Pagamentos</strong></td>
+<td style="text-align: left;">Importação da planilha de pagamento da Distribuidora com confronto automático: ordens 100% batidas vão para "Finalizado", divergências são isoladas para análise.</td>
+<td style="text-align: center;"><strong>Bloco 5</strong></td>
+</tr>
+<tr>
+<td style="text-align: center;">⏳ <strong><span class="badge badge-pending">⏳ PLANEJADO</span></strong></td>
+<td style="text-align: left;"><strong>Comparador Dinâmico de Valores (Status 11)</strong></td>
+<td style="text-align: left;">Interface comparando <code>Valor Medido vs. Valor Pago</code> por item de serviço para justificar e contestar cortes da Distribuidora.</td>
+<td style="text-align: center;"><strong>Bloco 5</strong></td>
+</tr>
+<tr>
+<td style="text-align: center;">⏳ <strong><span class="badge badge-pending">⏳ PLANEJADO</span></strong></td>
+<td style="text-align: left;"><strong>Gestão de Disputas e Glosas (Status 12 e 13)</strong></td>
+<td style="text-align: left;">Acompanhamento de recursos e cobrança de serviços pagos a menor para recuperação de receita contratual.</td>
+<td style="text-align: center;"><strong>Bloco 5</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>📊 Síntese Executiva de Maturidade do Projeto</h2>
+<ul>
+<li><strong>Bloco 1 (Performance e Infraestrutura):</strong> 100% Concluído e em Produção.</li>
+<li><strong>Bloco 2 (Comunicação e Linha do Tempo):</strong> 100% Concluído e em Produção.</li>
+<li><strong>Bloco 3 (Pendências Operacionais e Prazos SLA):</strong> 100% Concluído e em Produção.</li>
+<li><strong>Bloco 4 (Automação da Medição e Lotes Inteligentes):</strong> 100% Concluído e Homologado.</li>
+<li><strong>Recursos Transversais (Perfis, Segurança, Auditoria e Carga):</strong> 100% Concluídos.</li>
+<li><strong>Status Geral da Solução:</strong> <strong>80% do escopo total concluído</strong>, com toda a esteira operacional, de campo e medição blindada e validada.</li>
+</ul>
+
+    <div class="footer-print">
+      <span>SIGES — Sistema de Gestão de Etapas de Serviços | Cosampa</span>
+      <span>Relatório Gerencial de Entregas e Conformidade Operacional</span>
+    </div>
+  </div>
+</body>
+</html>
