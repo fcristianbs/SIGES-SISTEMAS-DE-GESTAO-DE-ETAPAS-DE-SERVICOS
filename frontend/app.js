@@ -24,7 +24,6 @@ const STATUS_DEFS = {
 const DICIONARIO_COLUNAS = {
   sel: 'Checkbox (Seleção)',
   st: 'Status',
-  svc_data: 'Serviço e Data',
   id: 'Número do Serviço',
   data: 'Data de Execução',
   pep_tdc: 'PEP Obra / TDC',
@@ -685,7 +684,7 @@ function renderDynamicTableHeaders(state) {
   if (!state.perfisTela || state.perfisTela.length === 0) return '';
   const ativo = state.perfisTela.find(p => p.id === state.perfilTelaAtivoId) || state.perfisTela[0];
   
-  return ativo.colunas_visiveis.map(colKey => {
+  return ativo.colunas_visiveis.filter(colKey => colKey !== 'svc_data').map(colKey => {
     if (colKey === 'sel') {
       const allSelected = state.servicos.length > 0 && state.selecionados.length === state.servicos.length;
       return `<th style="padding:10px 12px;width:28px"><input type="checkbox" id="check-all-dynamic" ${allSelected ? 'checked' : ''}></th>`;
@@ -707,11 +706,10 @@ function renderDynamicTableRow(s, state, isIrma = false) {
 
   const irmaBadge = isIrma ? `<span class="badge-irma" style="background:#e0f2fe;color:#0369a1;font-size:9.5px;padding:2px 6px;border-radius:4px;font-weight:700;border:1px solid #bae6fd;margin-left:4px" title="${typeof isIrma === 'string' ? isIrma : 'Serviço Irmão (compartilha Incidência/Obra/Cliente)'}">🔗 SOB Irmã</span>` : '';
 
-  return ativo.colunas_visiveis.map(colKey => {
+  return ativo.colunas_visiveis.filter(colKey => colKey !== 'svc_data').map(colKey => {
     if (colKey === 'sel') return `<td style="padding:10px 12px" onclick="event.stopPropagation()"><input type="checkbox" class="check-svc" data-id="${s.id}" ${isSel ? 'checked' : ''}></td>`;
     if (colKey === 'st') return `<td style="padding:10px"><span class="badge-status" style="background:${def.bg};color:${def.fg}"><span class="badge-status-num">0${s.st}</span> ${def.n}</span></td>`;
-    if (colKey === 'svc_data') return `<td style="padding:10px">${gpmLink} ${irmaBadge}<br><small style="color:#71807a">${s.tp} · <b>${formatarDataBR(s.data)}</b></small></td>`;
-    if (colKey === 'id') return `<td style="padding:10px">${gpmLink} ${irmaBadge}</td>`;
+    if (colKey === 'id') return `<td style="padding:10px;white-space:nowrap">${gpmLink} ${irmaBadge}</td>`;
     if (colKey === 'data') return `<td style="padding:10px;white-space:nowrap;font-variant-numeric:tabular-nums">${formatarDataBR(s.data)}</td>`;
     if (colKey === 'pep_tdc') return `<td style="padding:10px;font-family:var(--font-mono);font-size:11px"><b>${s.pep||'—'}</b><br><small style="color:#71807a">${s.tdc||'—'}</small></td>`;
     if (colKey === 'cli_ct') return `<td style="padding:10px;font-size:11px"><b>${s.cliente || '—'}</b><br><small style="font-weight:600;color:#5b6b65">${s.ct}</small></td>`;
