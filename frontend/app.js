@@ -635,6 +635,52 @@ function bindToolbarEvents(container, state) {
   });
 }
 
+function formatarDataBR(dataVal) {
+  if (!dataVal || dataVal === '—' || dataVal === '-' || dataVal === 'Hoje') return dataVal || '—';
+  const str = String(dataVal).trim();
+  if (!str) return '—';
+  
+  // Se já for DD/MM/AAAA
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(str)) return str;
+
+  // YYYY-MM-DD ou YYYY-MM-DDTHH:mm:ss ou YYYY-MM-DD HH:mm:ss
+  const mISO = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::\d{2})?)?/);
+  if (mISO) {
+    const [_, yyyy, mm, dd, hh, min] = mISO;
+    if (hh !== undefined && min !== undefined) {
+      return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+    }
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  // Tentar Date
+  try {
+    const d = new Date(dataVal);
+    if (!isNaN(d.getTime())) {
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+  } catch (_) {}
+
+  return str;
+}
+
+function calcularDiasAtrasoSLA(dataVal) {
+  if (!dataVal || dataVal === 'Hoje' || dataVal === '—') return 0;
+  let d = null;
+  const str = String(dataVal).trim();
+  const mBR = str.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (mBR) {
+    d = new Date(Number(mBR[3]), Number(mBR[2]) - 1, Number(mBR[1]));
+  } else {
+    d = new Date(str);
+  }
+  if (!d || isNaN(d.getTime())) return 0;
+  return Math.max(0, Math.floor((new Date() - d) / (1000 * 60 * 60 * 24)));
+}
+
 function renderDynamicTableHeaders(state) {
   if (!state.perfisTela || state.perfisTela.length === 0) return '';
   const ativo = state.perfisTela.find(p => p.id === state.perfilTelaAtivoId) || state.perfisTela[0];
@@ -646,7 +692,7 @@ function renderDynamicTableHeaders(state) {
     }
     const label = DICIONARIO_COLUNAS[colKey] || colKey;
     const align = (colKey === 'v') ? 'right' : 'left';
-    return `<th style="padding:10px;text-align:${align}">${label.toUpperCase()}</th>`;
+    return `<th style="padding:10px;text-align:${align};white-space:nowrap">${label.toUpperCase()}</th>`;
   }).join('');
 }
 
@@ -664,9 +710,9 @@ function renderDynamicTableRow(s, state, isIrma = false) {
   return ativo.colunas_visiveis.map(colKey => {
     if (colKey === 'sel') return `<td style="padding:10px 12px" onclick="event.stopPropagation()"><input type="checkbox" class="check-svc" data-id="${s.id}" ${isSel ? 'checked' : ''}></td>`;
     if (colKey === 'st') return `<td style="padding:10px"><span class="badge-status" style="background:${def.bg};color:${def.fg}"><span class="badge-status-num">0${s.st}</span> ${def.n}</span></td>`;
-    if (colKey === 'svc_data') return `<td style="padding:10px">${gpmLink} ${irmaBadge}<br><small style="color:#71807a">${s.tp} · <b>${s.data || '—'}</b></small></td>`;
+    if (colKey === 'svc_data') return `<td style="padding:10px">${gpmLink} ${irmaBadge}<br><small style="color:#71807a">${s.tp} · <b>${formatarDataBR(s.data)}</b></small></td>`;
     if (colKey === 'id') return `<td style="padding:10px">${gpmLink} ${irmaBadge}</td>`;
-    if (colKey === 'data') return `<td style="padding:10px">${s.data || '—'}</td>`;
+    if (colKey === 'data') return `<td style="padding:10px;white-space:nowrap;font-variant-numeric:tabular-nums">${formatarDataBR(s.data)}</td>`;
     if (colKey === 'pep_tdc') return `<td style="padding:10px;font-family:var(--font-mono);font-size:11px"><b>${s.pep||'—'}</b><br><small style="color:#71807a">${s.tdc||'—'}</small></td>`;
     if (colKey === 'cli_ct') return `<td style="padding:10px;font-size:11px"><b>${s.cliente || '—'}</b><br><small style="font-weight:600;color:#5b6b65">${s.ct}</small></td>`;
     if (colKey === 'origem') {
@@ -1422,7 +1468,7 @@ function renderPendencias(svcs, state) {
             </span>
             ${foco.data && foco.data !== 'Hoje' ? `
               <span style="font-size:11px;font-weight:700;color:#dc2626;background:#fee2e2;padding:2px 6px;border-radius:4px">
-                ⏳ Atraso SLA: ${Math.max(0, Math.floor((new Date() - new Date(foco.data)) / (1000*60*60*24)))} dias
+                ⏳ Atraso SLA: ${calcularDiasAtrasoSLA(foco.data_raw || foco.data)} dias
               </span>
             ` : ''}
           </div>
@@ -2592,7 +2638,7 @@ function renderDrawer(state) {
             <div><b>Contrato:</b> ${s.ct}</div>
             <div><b>Tipo Atividade:</b> ${s.tp}</div>
             <div><b>Centro Serviço:</b> ${s.dep || '—'}</div>
-            <div><b>Data Execução:</b> ${s.data || '—'}</div>
+            <div><b>Data Execução:</b> ${formatarDataBR(s.data)}</div>
             <div><b>Incidência:</b> ${s.incidencia || '—'}</div>
             <div><b>Obra/PEP:</b> ${s.pep || '—'}</div>
           </div>

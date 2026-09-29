@@ -215,7 +215,18 @@ def buscar_servicos_db(contrato="todos", tipo="todos", status_id="todos", superv
                     val_float = 0.0
 
                 dt_val = r.get("data_execucao")
-                dt_str = str(dt_val) if dt_val else "Hoje"
+                if dt_val:
+                    if hasattr(dt_val, "strftime"):
+                        dt_str = dt_val.strftime("%d/%m/%Y")
+                    else:
+                        dt_s = str(dt_val).strip()
+                        parts = dt_s.split("-")
+                        if len(parts) == 3 and len(parts[0]) == 4:
+                            dt_str = f"{parts[2][:2]}/{parts[1]}/{parts[0]}"
+                        else:
+                            dt_str = dt_s
+                else:
+                    dt_str = "Hoje"
 
                 resultado.append({
                     "id": r.get("id") or f"SOB-{r.get('num_servico')}",
@@ -227,6 +238,7 @@ def buscar_servicos_db(contrato="todos", tipo="todos", status_id="todos", superv
                     "d": r.get("sla_dias") or 3,
                     "nota": r.get("nota_medicao") or f"NM-{str(r.get('num_servico'))[-4:]}",
                     "data": dt_str,
+                    "data_raw": str(dt_val) if dt_val else "",
                     "dep": r.get("centro_servico") or "Operação",
                     "ret": ret_str,
                     "pend": pend_items,
