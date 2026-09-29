@@ -252,7 +252,8 @@ class Store {
       if (f.status !== 'todos') {
         params.append('status_id', f.status);
       } else {
-        if (pageId === 'pendencias') params.append('status_in', '2,4,6,7');
+        if (pageId === 'medicao') params.append('status_in', '1,3,6,11,12,13');
+        else if (pageId === 'pendencias') params.append('status_in', '2,4,6,7');
         else if (pageId === 'faturamento') params.append('status_id', '8');
         else if (pageId === 'conciliacoes') {
           const sub = this.state.subAbaConciliacao || 'aguardando';
@@ -263,7 +264,7 @@ class Store {
           else params.append('status_in', '9,10,11,12,13,14');
         }
         else if (pageId === 'finalizados') params.append('status_in', '14,15');
-        // gerencial e medicao (que tem filtros proprios ou abertos) pegam 'todos'
+        // gerencial (painel geral com radar de todas as etapas) pega 'todos'
       }
 
       // Filtro Hierárquico Forçado: Se o usuário logado tiver cargo Coordenador ou Supervisor
@@ -802,7 +803,7 @@ function renderPageUI(pageId, state) {
     });
   }
 
-  // FilterBar Dinâmica
+  // FilterBar Dinâmica (Preservação Inteligente de DOM para não perder o foco ao digitar)
   const filterBar = document.getElementById('filterbar-container');
   if (filterBar && pageId !== 'gestao_acessos') {
     const kpis = state.kpisGlobais || {};
@@ -813,65 +814,130 @@ function renderPageUI(pageId, state) {
     const supervisoresUnicos = opcoes.supervisores || [];
     const coordenadoresUnicos = opcoes.coordenadores || [];
 
-    filterBar.innerHTML = `
-      <div class="filter-bar">
-        <select id="f-periodo" class="select-input">
-          <option value="mes" ${state.filtros.periodo==='mes'?'selected':''}>Período Total (GPM)</option>
-          <option value="7d" ${state.filtros.periodo==='7d'?'selected':''}>Últimos 7 dias</option>
-        </select>
-        <select id="f-contrato" class="select-input">
-          <option value="todos" ${state.filtros.contrato==='todos'?'selected':''}>Todos os contratos (${contratosUnicos.length})</option>
-          ${contratosUnicos.map(c => `<option value="${c}" ${state.filtros.contrato===c?'selected':''}>${c}</option>`).join('')}
-        </select>
-        <select id="f-tipo" class="select-input">
-          <option value="todos" ${state.filtros.tipo==='todos'?'selected':''}>Todos os tipos (${tiposUnicos.length})</option>
-          ${tiposUnicos.map(tp => `<option value="${tp}" ${state.filtros.tipo===tp?'selected':''}>${tp}</option>`).join('')}
-        </select>
-        <select id="f-status" class="select-input">
-          <option value="todos" ${state.filtros.status==='todos'?'selected':''}>Todos os status (15)</option>
-          ${Object.keys(STATUS_DEFS).map(k => `<option value="${k}" ${state.filtros.status===k?'selected':''}>0${k}. ${STATUS_DEFS[k].n}</option>`).join('')}
-        </select>
-        <select id="f-coordenador" class="select-input" title="Filtro Hierárquico de Coordenador (RN-05)">
-          <option value="todos" ${(!state.filtros.coordenador || state.filtros.coordenador==='todos')?'selected':''}>Coordenadores (RN-05)</option>
-          ${coordenadoresUnicos.map(c => `<option value="${c}" ${(state.filtros.coordenador || '').trim()===c.trim()?'selected':''}>👑 ${c}</option>`).join('')}
-        </select>
-        <select id="f-supervisor" class="select-input" title="Filtro Hierárquico de Supervisor (RN-05)">
-          <option value="todos" ${(!state.filtros.supervisor || state.filtros.supervisor==='todos')?'selected':''}>Supervisores (RN-05)</option>
-          ${supervisoresUnicos.map(sup => `<option value="${sup}" ${(state.filtros.supervisor || '').trim()===sup.trim()?'selected':''}>👤 ${sup}</option>`).join('')}
-        </select>
-        <input id="f-busca" class="text-input" value="${state.filtros.busca}" placeholder="Buscar SOB, PEP, TDC, obra..." style="width:200px">
-      </div>
+    const existingFilterBar = filterBar.querySelector('.filter-bar');
+    if (existingFilterBar) {
+      // Se a barra já existe, apenas sincroniza valores sem recriar o DOM (evita perda de foco)
+      if (document.activeElement?.id !== 'f-periodo') {
+        const el = filterBar.querySelector('#f-periodo');
+        if (el && el.value !== state.filtros.periodo) el.value = state.filtros.periodo;
+      }
+      if (document.activeElement?.id !== 'f-contrato') {
+        const el = filterBar.querySelector('#f-contrato');
+        if (el && el.value !== state.filtros.contrato) el.value = state.filtros.contrato;
+      }
+      if (document.activeElement?.id !== 'f-tipo') {
+        const el = filterBar.querySelector('#f-tipo');
+        if (el && el.value !== state.filtros.tipo) el.value = state.filtros.tipo;
+      }
+      if (document.activeElement?.id !== 'f-status') {
+        const el = filterBar.querySelector('#f-status');
+        if (el && el.value !== state.filtros.status) el.value = state.filtros.status;
+      }
+      if (document.activeElement?.id !== 'f-coordenador') {
+        const el = filterBar.querySelector('#f-coordenador');
+        if (el && el.value !== (state.filtros.coordenador || 'todos')) el.value = state.filtros.coordenador || 'todos';
+      }
+      if (document.activeElement?.id !== 'f-supervisor') {
+        const el = filterBar.querySelector('#f-supervisor');
+        if (el && el.value !== (state.filtros.supervisor || 'todos')) el.value = state.filtros.supervisor || 'todos';
+      }
+      // Se o usuário NÃO estiver com o cursor dentro do input de busca, atualiza o texto
+      if (document.activeElement?.id !== 'f-busca') {
+        const el = filterBar.querySelector('#f-busca');
+        if (el && el.value !== (state.filtros.busca || '')) el.value = state.filtros.busca || '';
+      }
+
+      // Atualiza a toolbar de perfis se houver container
+      const toolbarWrapper = filterBar.querySelector('#toolbar-perfis-wrapper');
+      if (toolbarWrapper) {
+        toolbarWrapper.innerHTML = renderToolbarPerfis(state);
+        bindToolbarEvents(filterBar, state);
+      }
+    } else {
+      // Primeira montagem do FilterBar
+      filterBar.innerHTML = `
+        <div class="filter-bar">
+          <select id="f-periodo" class="select-input">
+            <option value="mes" ${state.filtros.periodo==='mes'?'selected':''}>Período Total (GPM)</option>
+            <option value="7d" ${state.filtros.periodo==='7d'?'selected':''}>Últimos 7 dias</option>
+          </select>
+          <select id="f-contrato" class="select-input">
+            <option value="todos" ${state.filtros.contrato==='todos'?'selected':''}>Todos os contratos (${contratosUnicos.length})</option>
+            ${contratosUnicos.map(c => `<option value="${c}" ${state.filtros.contrato===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+          <select id="f-tipo" class="select-input">
+            <option value="todos" ${state.filtros.tipo==='todos'?'selected':''}>Todos os tipos (${tiposUnicos.length})</option>
+            ${tiposUnicos.map(tp => `<option value="${tp}" ${state.filtros.tipo===tp?'selected':''}>${tp}</option>`).join('')}
+          </select>
+          <select id="f-status" class="select-input">
+            <option value="todos" ${state.filtros.status==='todos'?'selected':''}>Todos os status (15)</option>
+            ${Object.keys(STATUS_DEFS).map(k => `<option value="${k}" ${state.filtros.status===k?'selected':''}>0${k}. ${STATUS_DEFS[k].n}</option>`).join('')}
+          </select>
+          <select id="f-coordenador" class="select-input" title="Filtro Hierárquico de Coordenador (RN-05)">
+            <option value="todos" ${(!state.filtros.coordenador || state.filtros.coordenador==='todos')?'selected':''}>Coordenadores (RN-05)</option>
+            ${coordenadoresUnicos.map(c => `<option value="${c}" ${(state.filtros.coordenador || '').trim()===c.trim()?'selected':''}>👑 ${c}</option>`).join('')}
+          </select>
+          <select id="f-supervisor" class="select-input" title="Filtro Hierárquico de Supervisor (RN-05)">
+            <option value="todos" ${(!state.filtros.supervisor || state.filtros.supervisor==='todos')?'selected':''}>Supervisores (RN-05)</option>
+            ${supervisoresUnicos.map(sup => `<option value="${sup}" ${(state.filtros.supervisor || '').trim()===sup.trim()?'selected':''}>👤 ${sup}</option>`).join('')}
+          </select>
+          <input id="f-busca" class="text-input" value="${state.filtros.busca || ''}" placeholder="Buscar SOB, PEP, TDC, obra..." style="width:200px">
+        </div>
+        
+        <div id="toolbar-perfis-wrapper">
+          ${renderToolbarPerfis(state)}
+        </div>
+      `;
+
+      filterBar.querySelector('#f-contrato')?.addEventListener('change', (e) => {
+        store.setState({ filtros: { ...store.getState().filtros, contrato: e.target.value }, paginaAtual: 1 });
+        store.carregarServicosAPI();
+      });
+      filterBar.querySelector('#f-tipo')?.addEventListener('change', (e) => {
+        store.setState({ filtros: { ...store.getState().filtros, tipo: e.target.value }, paginaAtual: 1 });
+        store.carregarServicosAPI();
+      });
+      filterBar.querySelector('#f-status')?.addEventListener('change', (e) => {
+        store.setState({ filtros: { ...store.getState().filtros, status: e.target.value }, paginaAtual: 1 });
+        store.carregarServicosAPI();
+      });
+      filterBar.querySelector('#f-coordenador')?.addEventListener('change', (e) => {
+        store.setState({ filtros: { ...store.getState().filtros, coordenador: e.target.value }, paginaAtual: 1 });
+        store.carregarServicosAPI();
+      });
+      filterBar.querySelector('#f-supervisor')?.addEventListener('change', (e) => {
+        store.setState({ filtros: { ...store.getState().filtros, supervisor: e.target.value }, paginaAtual: 1 });
+        store.carregarServicosAPI();
+      });
+
+      // Debounce de digitação para o campo de busca (permite digitar livremente sem travar o cursor)
+      let debounceBuscaTimeout = null;
+      const buscaInput = filterBar.querySelector('#f-busca');
+      if (buscaInput) {
+        buscaInput.addEventListener('input', (e) => {
+          const val = e.target.value;
+          clearTimeout(debounceBuscaTimeout);
+          debounceBuscaTimeout = setTimeout(() => {
+            store.state.filtros.busca = val;
+            localStorage.setItem('siges_filtros', JSON.stringify(store.state.filtros));
+            store.state.paginaAtual = 1;
+            store.carregarServicosAPI();
+          }, 400);
+        });
+
+        buscaInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            clearTimeout(debounceBuscaTimeout);
+            store.state.filtros.busca = e.target.value;
+            localStorage.setItem('siges_filtros', JSON.stringify(store.state.filtros));
+            store.state.paginaAtual = 1;
+            store.carregarServicosAPI();
+          }
+        });
+      }
       
-      <!-- Toolbar Perfis de Tela (CDU V4) -->
-      ${renderToolbarPerfis(state)}
-      
-    `;
-    filterBar.querySelector('#f-contrato')?.addEventListener('change', (e) => {
-      store.setState({ filtros: { ...store.getState().filtros, contrato: e.target.value }, paginaAtual: 1 });
-      store.carregarServicosAPI();
-    });
-    filterBar.querySelector('#f-tipo')?.addEventListener('change', (e) => {
-      store.setState({ filtros: { ...store.getState().filtros, tipo: e.target.value }, paginaAtual: 1 });
-      store.carregarServicosAPI();
-    });
-    filterBar.querySelector('#f-status')?.addEventListener('change', (e) => {
-      store.setState({ filtros: { ...store.getState().filtros, status: e.target.value }, paginaAtual: 1 });
-      store.carregarServicosAPI();
-    });
-    filterBar.querySelector('#f-coordenador')?.addEventListener('change', (e) => {
-      store.setState({ filtros: { ...store.getState().filtros, coordenador: e.target.value }, paginaAtual: 1 });
-      store.carregarServicosAPI();
-    });
-    filterBar.querySelector('#f-supervisor')?.addEventListener('change', (e) => {
-      store.setState({ filtros: { ...store.getState().filtros, supervisor: e.target.value }, paginaAtual: 1 });
-      store.carregarServicosAPI();
-    });
-    filterBar.querySelector('#f-busca')?.addEventListener('input', (e) => {
-      store.setState({ filtros: { ...store.getState().filtros, busca: e.target.value }, paginaAtual: 1 });
-      store.carregarServicosAPI();
-    });
-    
-    bindToolbarEvents(filterBar, state);
+      bindToolbarEvents(filterBar, state);
+    }
   }
 
   // Renderização da Tela
@@ -1455,8 +1521,8 @@ function renderPendencias(svcs, state) {
         });
         const data = await res.json();
         if (res.ok && data.status === 'sucesso') {
-          const novos = store.getState().servicos.map(x => x.id === foco.id ? { ...x, st: statusRetorno, pend: [] } : x);
-          store.setState({ servicos: novos, servicoFocoId: null });
+          await store.carregarServicosAPI();
+          store.setState({ servicoFocoId: null });
           store.notifyToast(`RN-04: 100% dos itens tratados! SOB ${foco.id} retornou automaticamente para 0${statusRetorno}. Aguardando Conferência!`);
         } else {
           alert(data.mensagem || 'Erro ao realizar retorno automático.');

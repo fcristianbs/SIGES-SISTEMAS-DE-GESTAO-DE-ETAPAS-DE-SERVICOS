@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGES — Checklist Mestre de Homologação (CDU V0 ao CDU V5)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --primary-light: #e0f2fe;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --text-heading: #0f172a;
+      --border-color: #e2e8f0;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --success-bg: #dcfce7;
+      --success-text: #15803d;
+      --success-border: #86efac;
+      --warning-bg: #fef3c7;
+      --warning-text: #b45309;
+      --warning-border: #fde68a;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--text-main);
+      background-color: var(--bg-page);
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 20px auto;
+      background: var(--bg-card);
+      padding: 32px 40px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Compact Print Budgeting & Layout */
+    @media print {
+      body {
+        background: #ffffff !important;
+        font-size: 8pt !important;
+        line-height: 1.3 !important;
+      }
+      .container {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+      }
+      h1, h2, h3, h4 {
+        break-after: avoid !important;
+        page-break-after: avoid !important;
+      }
+      h2 {
+        break-before: auto !important;
+        page-break-before: auto !important;
+      }
+      table, .badge {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      li.check-item {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+    }
+
+    @page {
+      size: A4 portrait;
+      margin: 8mm 10mm 8mm 10mm;
+      @bottom-right {
+        content: "Página " counter(page);
+        font-size: 7.5pt;
+        color: #64748b;
+        font-family: 'Inter', sans-serif;
+      }
+    }
+
+    .header-doc {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 2px solid var(--primary);
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    .header-title {
+      font-size: 15pt;
+      font-weight: 800;
+      color: var(--text-heading);
+      letter-spacing: -0.02em;
+      margin: 0;
+    }
+
+    .header-subtitle {
+      font-size: 9pt;
+      font-weight: 600;
+      color: var(--primary);
+      margin-top: 2px;
+    }
+
+    .header-meta {
+      text-align: right;
+      font-size: 7.5pt;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+
+    h1 {
+      font-size: 12pt;
+      font-weight: 800;
+      color: var(--text-heading);
+      border-bottom: 1.5px solid var(--border-color);
+      padding-bottom: 3px;
+      margin-top: 10px;
+      margin-bottom: 6px;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    h2 {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: #0369a1;
+      background: #f0f9ff;
+      border-left: 3.5px solid var(--primary);
+      padding: 3px 8px;
+      margin-top: 10px;
+      margin-bottom: 5px;
+      border-radius: 0 3px 3px 0;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    h3 {
+      font-size: 8.5pt;
+      font-weight: 700;
+      color: var(--text-heading);
+      margin-top: 7px;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      border-bottom: 1px dotted #e2e8f0;
+      padding-bottom: 2px;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    p {
+      margin: 2px 0 4px 0;
+    }
+
+    ul {
+      margin: 2px 0 4px 0;
+      padding-left: 18px;
+    }
+
+    ol {
+      margin: 2px 0 4px 0;
+      padding-left: 18px;
+    }
+
+    li {
+      margin-bottom: 1.5px;
+    }
+
+    li.check-item {
+      list-style-type: none;
+      position: relative;
+      padding-left: 6px;
+      font-size: 8pt;
+      font-weight: 500;
+      color: #334155;
+    }
+
+    .box-check {
+      display: inline-block;
+      width: 12px;
+      font-size: 10pt;
+      color: var(--primary);
+      margin-right: 3px;
+    }
+
+    li.checked .box-check {
+      color: #16a34a;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 7.5pt;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 0.5px 3px;
+      border-radius: 2px;
+      border: 1px solid #e2e8f0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 5px 0 8px 0;
+      font-size: 7.5pt;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    th, td {
+      padding: 3px 5px;
+      border: 1px solid var(--border-color);
+      text-align: left;
+    }
+
+    th {
+      background: #f1f5f9;
+      font-weight: 700;
+      color: #334155;
+    }
+
+    tr:nth-child(even) {
+      background: #f8fafc;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 7pt;
+      font-weight: 700;
+      padding: 0.5px 4px;
+      border-radius: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .badge-done {
+      background: var(--success-bg);
+      color: var(--success-text);
+      border: 1px solid var(--success-border);
+    }
+
+    .badge-pending {
+      background: var(--warning-bg);
+      color: var(--warning-text);
+      border: 1px solid var(--warning-border);
+    }
+
+    hr {
+      border: none;
+      border-top: 1px dashed var(--border-color);
+      margin: 6px 0;
+    }
+
+    blockquote {
+      background: #f0fdf4;
+      border-left: 3px solid #22c55e;
+      margin: 6px 0;
+      padding: 4px 8px;
+      color: #166534;
+      font-size: 7.5pt;
+      border-radius: 0 3px 3px 0;
+    }
+
+    .footer-print {
+      margin-top: 12px;
+      border-top: 1px solid var(--border-color);
+      padding-top: 4px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7pt;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-doc">
+      <div>
+        <div class="header-title">SIGES — Checklist Mestre de Homologação</div>
+        <div class="header-subtitle">Consolidação Integral de Casos de Uso: do CDU V0 ao CDU V5</div>
+      </div>
+      <div class="header-meta">
+        <div><strong>Status da Plataforma:</strong> 100% Implementado [x]</div>
+        <div><strong>Data de Emissão:</strong> 28/09/2026</div>
+        <div><strong>Escopo:</strong> Testes Ponta a Ponta (End-to-End)</div>
+      </div>
+    </div>
+
+    <h1>📑 Checklist Mestre de Homologação da Plataforma SIGES</h1>
+<h3>Consolidação Integral de Casos de Uso: do CDU V0 ao CDU V5</h3>
+<p>Este documento é o <strong>checklist definitivo e unificado de testes da plataforma SIGES</strong>, consolidando todos os requisitos, regras de negócio e casos de uso especificados desde a primeira concepção (<strong>CDU V0 / V1</strong>) até a versão mais recente (<strong>CDU V5</strong>).</p>
+<p>Utilize este roteiro prático para validar a integridade de todas as funcionalidades desenvolvidas. Cada teste contém seu <strong>objetivo</strong>, <strong>passo a passo de execução no navegador</strong>, <strong>critério de validação esperado</strong> e a respectiva <strong>caixa de marcação <code><span class="badge badge-pending">⏳ A TESTAR</span></code></strong>.</p>
+<hr />
+<h2>🧭 Sumário dos Módulos de Teste</h2>
+<ol>
+<li><a href="#-módulo-1-fundações-de-arquitetura-performance-e-navegação">Módulo 1: Fundações de Arquitetura, Performance e Navegação (CDU V1, V2 e V5)</a></li>
+<li><a href="#-módulo-2-governança-rbac-perfis-de-tela-e-auditoria-global">Módulo 2: Governança, RBAC, Perfis de Tela e Auditoria Global (CDU V1, V3, V4 e V5)</a></li>
+<li><a href="#-módulo-3-motor-colaborativo-linha-do-tempo-e-notificações">Módulo 3: Motor Colaborativo, Linha do Tempo e Notificações (CDU V5)</a></li>
+<li><a href="#-módulo-4-gestão-de-pendências-sla-e-roteamento-de-campo">Módulo 4: Gestão de Pendências, SLA e Roteamento de Campo (CDU V1, V2 e V5)</a></li>
+<li><a href="#-módulo-5-ingestão-de-dados-e-importador-dinâmico-de-planilhas">Módulo 5: Ingestão de Dados e Importador Dinâmico de Planilhas (CDU V3 - CDU-08)</a></li>
+<li><a href="#-módulo-6-tela-01---medição-validador-de-origem-lotes-e-bypass">Módulo 6: Tela 01 - Medição, Validador de Origem, Lotes e Bypass (CDU V1, V4 e V5)</a></li>
+<li><a href="#-módulo-7-módulo-financeiro-faturamento-e-conciliação-automática">Módulo 7: Módulo Financeiro, Faturamento e Conciliação Automática (CDU V5 - Telas 04, 05 e 06)</a></li>
+</ol>
+<hr />
+<h2>🏗️ Módulo 1: Fundações de Arquitetura, Performance e Navegação</h2>
+<p><em>Origem: CDU V1 (Itens 1 e 2), CDU V2 (Itens 1.1 e 1.2) e CDU V5 (Item 5.1)</em></p>
+<h3>1.1 Persistência de Sessão e Filtros no Frontend (LocalStorage)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Garantir que o usuário não perca seu contexto de trabalho ao atualizar a página ou alternar abas.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Acesse o SIGES e abra a tela de <strong>Medição (01)</strong> ou <strong>Gerencial</strong>.</li>
+<li>Altere o filtro de <strong>Contrato</strong> (ex: para <em>"MULTISERVICOS SUL"</em> ou <em>"COMERCIAL LESTE"</em>).</li>
+<li>Navegue até a <strong>Página 2</strong> (ou outra) no paginador inferior da tabela.</li>
+<li>Pressione a tecla <strong>F5</strong> ou o botão recarregar do navegador.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O filtro de Contrato permanece exatamente com o valor selecionado antes do recarregamento.</li>
+<li class="check-item"><span class="box-check">☐</span> A tabela permanece na Página 2, sem resetar para a primeira página.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>1.2 Paginação Server-Side e Carregamento Sob Demanda (Lazy Loading)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Impedir lentidão ou congelamento do navegador ao processar bases com milhares de ordens.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Abra as Ferramentas de Desenvolvedor do navegador (<strong>F12</strong>) e vá para a aba <strong>Network (Rede)</strong>.</li>
+<li>Recarregue a página e localize a requisição para <code>/api/servicos</code>.</li>
+<li>Clique na requisição e inspecione a URL e os parâmetros enviados.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> A chamada contém os parâmetros <code>skip=0</code> e <code>limit=10</code> (ou o limite configurado).</li>
+<li class="check-item"><span class="box-check">☐</span> O retorno JSON possui o formato <code>{ "data": [ ... 10 itens ... ], "total": X }</code>, comprovando que o banco de dados só entregou a fatia solicitada.</li>
+<li class="check-item"><span class="box-check">☐</span> Ao clicar na página seguinte da tabela, uma nova chamada <code>/api/servicos?skip=10</code> é disparada de forma instantânea.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>1.3 Integridade dos KPIs do Dashboard Gerencial</h3>
+<ul>
+<li><strong>Objetivo:</strong> Garantir que os cards e gráficos analíticos computem a totalidade real do banco de dados, desacoplados da paginação da tabela.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Acesse a tela <strong>Gerencial / Relatórios</strong>.</li>
+<li>Observe o número do card <strong>"Serviços na Esteira"</strong> e os gráficos de barra por status.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O card "Serviços na Esteira" exibe a quantidade consolidada total do banco (ex: 2.000+ serviços) e <strong>NÃO</strong> o número 10 da tabela paginada.</li>
+<li class="check-item"><span class="box-check">☐</span> Os gráficos de distribuição de status refletem a proporção global da base cadastrada.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>1.4 Desacoplamento entre Chave GPM (<code>num_servico</code>) e Chave Distribuidora (<code>tdc</code>)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Respeitar a independência estrutural das chaves exigida no CDU V2 e CDU V5 (suporte a relações 1:1, 1:N, N:1 e N:M).</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Na tabela de <strong>Medição</strong>, localize as colunas ou o campo <strong>PEP Obra / TDC</strong>.</li>
+<li>Abra o Drawer lateral de detalhes clicando sobre qualquer serviço.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O campo <code>num_servico</code> (código numérico interno da Cosampa/GPM) é exibido separadamente do código <code>tdc</code> (chave da concessionária).</li>
+<li class="check-item"><span class="box-check">☐</span> O sistema não funde nem sobrescreve um código pelo outro durante edições ou importações.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>1.5 Distinção Estrutural entre Situação do Serviço e Sistema de Origem</h3>
+<ul>
+<li><strong>Objetivo:</strong> Assegurar que a situação física no GPM (<code>Executado</code>, etc.) não se confunda com a plataforma de origem da Distribuidora (<code>Eorder</code>, <code>Synergia</code>, <code>SacBt</code>, <code>PDA</code>).</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Abra o Drawer lateral de um serviço.</li>
+<li>Observe a seção de informações de campo.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O sistema exibe o status operacional original do GPM de forma protegida.</li>
+<li class="check-item"><span class="box-check">☐</span> O campo <strong>Sistema de Origem</strong> é tratado em bloco específico de validação de canal (com opções auditáveis Eorder, Synergia, SacBt, PDA, Importação Massiva).</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>🛡️ Módulo 2: Governança, RBAC, Perfis de Tela e Auditoria Global</h2>
+<p><em>Origem: CDU V1 (RN-01), CDU V3 (Perfis de Acesso), CDU V4 (Perfis de Tela) e CDU V5 (Item 1.0)</em></p>
+<h3>2.1 Autenticação e Controle de Acesso Baseado em Papéis (RBAC)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Restringir o acesso a telas, botões e ações financeiras de acordo com o cargo do colaborador.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Efetue logout e faça login como <strong>Supervisor de Campo</strong> (<code>supervisor@cosampa.com.br</code>).</li>
+<li>Verifique o menu lateral e tente acessar as telas de faturamento.</li>
+<li>Efetue logout e entre como <strong>Administrador Master</strong> (<code>admin@cosampa.com.br</code>).</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O perfil Supervisor tem acesso liberado para saneamento de pendências e visão operacional de suas equipes.</li>
+<li class="check-item"><span class="box-check">☐</span> Ações críticas de autorização de faturamento e administração de acessos permanecem restritas aos perfis com a devida alçada (Analista de Fechamento e Administrador Master).</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>2.2 Gestão de Usuários (Cadastro, Edição e Atribuição de Perfis)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Permitir a manutenção autônoma do quadro de usuários pela interface administrativa.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Logado como Administrador Master, acesse o menu <strong>Gestão de Acessos</strong>.</li>
+<li>Clique em <strong>"Cadastrar Novo Usuário"</strong>, preencha os dados e salve.</li>
+<li>Na listagem de usuários, clique no botão <strong>"Editar"</strong> do usuário recém-criado.</li>
+<li>Altere seu perfil (ex: de Operador para Analista) e confirme.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O modal abre com o título <em>"Editar Usuário"</em> trazendo os dados preenchidos previamente.</li>
+<li class="check-item"><span class="box-check">☐</span> A alteração é gravada no banco de dados e refletida imediatamente na listagem sem erros de API.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>2.3 Perfis de Tela Globais (Modo de Edição - Usuário Master)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Validar a criação e edição de layouts de colunas disponibilizados para toda a organização (CDU V4).</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Na barra de ferramentas localizada entre os filtros e a tabela, observe o seletor de Perfis de Tela.</li>
+<li>Abra o seletor e selecione a opção fixa <strong>"+ Adicionar Novo Perfil"</strong>.</li>
+<li>No seletor de colunas com checkboxes, marque/desmarque colunas (ex: oculte <em>PEP Obra</em> e ative <em>Centro de Serviço</em>).</li>
+<li>Dê um nome ao perfil (ex: <em>"Visão Executiva Global"</em>) e clique em <strong>Salvar</strong>.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> A tabela reconfigura suas colunas visíveis em tempo real sem recarregar a página.</li>
+<li class="check-item"><span class="box-check">☐</span> O perfil fica disponível no dropdown de todos os usuários como layout global.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>2.4 Derivação de Perfis Privados (Cópia Automática para Usuário Comum)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Impedir que usuários comuns alterem o layout padrão global, permitindo a criação de visões personalizadas privadas (RN01 e RN02 do CDU V4).</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Conecte-se com um usuário sem permissão master (ex: Operador/Supervisor).</li>
+<li>Selecione um perfil público existente (ex: <em>"Padrão"</em>).</li>
+<li>Desmarque 2 colunas no seletor de checkboxes e clique em <strong>Salvar</strong>.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O sistema não sobrescreve o perfil global original.</li>
+<li class="check-item"><span class="box-check">☐</span> O sistema abre modal solicitando um nome para salvar uma cópia local/privada (ex: <em>"Padrão [Meu Perfil]"</em>).</li>
+<li class="check-item"><span class="box-check">☐</span> O perfil privado passa a ser exibido exclusivamente no dropdown daquele usuário.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>2.5 Motor Global de Auditoria Imutável (RN-01)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Garantir rastreabilidade absoluta de quem modificou qualquer dado, quando ocorreu e quais foram os valores.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Abra o Drawer lateral de qualquer serviço.</li>
+<li>Altere um campo (ex: mude o Sistema de Origem de <em>SacBt</em> para <em>Eorder</em> e salve).</li>
+<li>Na seção inferior do Drawer, clique no botão <strong>"Carregar Logs"</strong> de Auditoria (RN-01).</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O sistema renderiza o histórico cronológico exibindo:<ul>
+<li>Nome e e-mail do colaborador logado;</li>
+<li>Timestamp exato da alteração;</li>
+<li>Nome do campo alterado (<code>origem_sistema</code>);</li>
+<li>Destaque visual: de <code>SacBt</code> ➔ <code>Eorder</code>.</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>💬 Módulo 3: Motor Colaborativo, Linha do Tempo e Notificações</h2>
+<p><em>Origem: CDU V5 (Item 1.0 e 2.0)</em></p>
+<h3>3.1 Timeline Cronológica e Comentários Colaborativos por Serviço</h3>
+<ul>
+<li><strong>Objetivo:</strong> Centralizar a comunicação técnica entre medição, fechamento e campo dentro da própria ordem de serviço.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Abra o Drawer lateral de um serviço e localize o bloco <strong>"💬 Timeline &amp; Comentários"</strong>.</li>
+<li>Digite uma justificativa ou mensagem de teste (ex: <em>"Fotos complementares solicitadas ao encarregado em campo"</em>).</li>
+<li>Clique em <strong>"Enviar"</strong>.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> A mensagem é adicionada imediatamente ao mural com o nome do usuário, foto/avatar e data/hora.</li>
+<li class="check-item"><span class="box-check">☐</span> A mensagem gravada torna-se imutável e permanece vinculada para sempre àquela SOB.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>3.2 Menções Reativas com <code>@usuario</code> e Notificações em Tempo Real</h3>
+<ul>
+<li><strong>Objetivo:</strong> Alertar diretamente membros da equipe quando citados em discussões de ordens de serviço.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>No campo de comentário da Timeline, digite o caractere <code>@</code>.</li>
+<li>Observe a abertura do popup com a lista de colaboradores cadastrados.</li>
+<li>Selecione um usuário da lista e conclua o envio da mensagem.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O popup sugere os usuários reativamente enquanto o nome é digitado.</li>
+<li class="check-item"><span class="box-check">☐</span> O sistema cria um registro de notificação para o usuário mencionado.</li>
+<li class="check-item"><span class="box-check">☐</span> Ao logar com o usuário citado, o ícone de sino no cabeçalho exibe o indicador visual de nova notificação.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>3.3 Notificação Automática na Transição de Responsabilidade Técnica</h3>
+<ul>
+<li><strong>Objetivo:</strong> Avisar automaticamente o próximo setor quando uma ordem de serviço muda de etapa.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Tramite um serviço do Status 01 (Medição) gerando pendência para o Status 02 (Operação).</li>
+<li>Verifique o mural de notificações e a timeline do serviço.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> A timeline registra uma entrada automática do sistema indicando a transferência de custódia.</li>
+<li class="check-item"><span class="box-check">☐</span> Supervisores da equipe responsável recebem o alerta de transição de responsabilidade.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>⚠️ Módulo 4: Gestão de Pendências, SLA e Roteamento de Campo</h2>
+<p><em>Origem: CDU V1 (RN-03, RN-04, RN-05 e CDU-03/04), CDU V2 (Item 2 - Tela 02) e CDU V5 (Item 2.0)</em></p>
+<h3>4.1 Trava Rígida de Bloqueio por Pendência Ativa (RN-03)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Impedir rigorosamente que serviços com inconsistências de campo avancem para faturamento ou validação do cliente.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Localize ou crie um serviço que esteja no <strong>Status 02 (Pendências Operacionais Cosampa)</strong> ou <strong>Status 04 (Pendências Distribuidora)</strong>.</li>
+<li>Tente forçar a tramitação direta para o Status 08 (Faturamento) ou Status 05 (Validação).</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O sistema rejeita o avanço e exibe a mensagem de bloqueio rígido da RN-03: <em>"Bloqueado! Existem pendências ativas que impedem o avanço direto para validação/faturamento"</em>.</li>
+<li class="check-item"><span class="box-check">☐</span> A ordem só permite movimentação dentro do fluxo saneador de pendências.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>4.2 Geração de Pendências Operacionais Cosampa (Fotos, Materiais e Croqui)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Registrar inconformidades de execução física para cobrança da equipe de campo.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Na tela de <strong>Medição</strong>, selecione um serviço no Status 01.</li>
+<li>Clique no botão <strong>"Gerar Pendência Cosampa"</strong>.</li>
+<li>No modal de itens de correção, selecione ao menos uma categoria (<em>Fotos</em>, <em>Materiais</em> ou <em>Documentação/Croqui</em>) e digite uma observação.</li>
+<li>Confirme a geração.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O serviço é migrado com sucesso para o <strong>Status 02 (Pendências Operacionais Cosampa)</strong>.</li>
+<li class="check-item"><span class="box-check">☐</span> Os itens de pendência assinalados ficam salvos e visíveis no detalhamento do serviço.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>4.3 Geração de Pendências Distribuidora e Regra de Prioridade</h3>
+<ul>
+<li><strong>Objetivo:</strong> Direcionar impasses comerciais para o cliente e aplicar a prioridade estrita de direcionamento quando houver sobreposição (CDU V1).</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Em um serviço no Status 01, clique em <strong>"Gerar Pendência Distribuidora"</strong> (ex: <em>Vozes não cadastradas no contrato</em>).</li>
+<li>Em seguida, assinale também uma pendência operacional interna da Cosampa.</li>
+<li>Confirme o roteamento.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O sistema aplica a regra de prioridade do CDU: a <strong>Pendência Cosampa sobrepõe a Pendência Distribuidora</strong>, encaminhando o serviço para o <strong>Status 02</strong> até a resolução interna da equipe.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>4.4 Retorno Automático para Medição após Resolução de 100% dos Itens (RN-04)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Eliminar intervenções manuais para devolver serviços saneados à esteira de medição.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Acesse a tela <strong>02. Pendências</strong> e localize um serviço com pendências operacionais no Status 02.</li>
+<li>Abra os detalhes das pendências e marque todos os itens pendentes como <strong>TRATADOS (100% resolvidos)</strong>.</li>
+<li>Salve o formulário.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O sistema reconhece a resolução integral e realiza a <strong>transição automática</strong> do status do serviço de volta para <strong>01. Aguardando Conferência</strong>.</li>
+<li class="check-item"><span class="box-check">☐</span> O serviço reaparece instantaneamente na tela de Medição sem necessidade de reatribuição manual.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>4.5 Motor de SLA Dinâmico (Cálculo de Dias, Cores de Alerta e Filtros de Estouro)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Monitorar o cumprimento de prazos operacionais por etapa conforme a matriz de SLA do CDU.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Acesse a tela de <strong>Pendências</strong> ou de <strong>Medição</strong>.</li>
+<li>Observe a coluna ou badge de <strong>SLA</strong> nos cards de serviços.</li>
+<li>No painel de filtros, utilize o filtro rápido de SLA (<em>No Prazo</em>, <em>Próximo ao Vencimento</em>, <em>Vencido/Estourado</em>).</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> Serviços dentro do prazo exibem badges verdes com contagem regressiva em dias (ex: <code>🟢 3 dias</code>).</li>
+<li class="check-item"><span class="box-check">☐</span> Serviços com prazo esgotado exibem badges vermelhos chamativos (ex: <code>🔴 SLA Estourado (-2d)</code>).</li>
+<li class="check-item"><span class="box-check">☐</span> O filtro de SLA isola com exatidão as ordens com atraso operacional.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>4.6 Filtro Hierárquico Operacional (RN-05)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Respeitar a cadeia de comando de campo (Coordenador ➔ Supervisor ➔ Equipe ➔ Membros).</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Conecte-se com o login de um <strong>Supervisor de Campo</strong> específico.</li>
+<li>Acesse a tela de <strong>Pendências</strong>.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> A esteira pré-filtra automaticamente apenas as ordens executadas pelas equipes subordinadas àquele supervisor.</li>
+<li class="check-item"><span class="box-check">☐</span> O supervisor possui a faculdade de limpar o filtro caso deseje prestar apoio a outras turmas.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>📥 Módulo 5: Ingestão de Dados e Importador Dinâmico de Planilhas</h2>
+<p><em>Origem: CDU V3 (CDU-08: Importação Inteligente e Sincronização Dinâmica)</em></p>
+<h3>5.1 Wizard de Importação - Passo 1: Upload e Seleção Reativa de Abas</h3>
+<ul>
+<li><strong>Objetivo:</strong> Analisar arquivos externos de planilhas e extrair suas planilhas de trabalho (<em>worksheets</em>).</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>No cabeçalho da aplicação, clique no botão <strong>"📥 Importar Planilha"</strong>.</li>
+<li>No modal exibido, arraste ou selecione um arquivo Excel (<code>.xlsx</code>) contendo múltiplas abas.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O sistema faz a leitura prévia do arquivo e renderiza um dropdown listando todas as abas identificadas na planilha.</li>
+<li class="check-item"><span class="box-check">☐</span> O botão "Avançar" só é liberado após a escolha de uma aba válida.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>5.2 Wizard de Importação - Passo 2: Pré-Visualização e Seleção de Cabeçalho</h3>
+<ul>
+<li><strong>Objetivo:</strong> Localizar a linha exata onde começam os títulos das colunas na planilha externa.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Após escolher a aba, avance para o <strong>Passo 2</strong>.</li>
+<li>Observe a tabela de amostragem das primeiras 10 linhas da planilha.</li>
+<li>Selecione a linha que contém os rótulos reais de coluna (geralmente Linha 0 ou Linha 1).</li>
+<li>Clique em <strong>"Avançar"</strong>.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> As linhas da planilha são renderizadas com clareza em formato tabular.</li>
+<li class="check-item"><span class="box-check">☐</span> A linha selecionada é destacada com borda e cor de seleção.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>5.3 Wizard de Importação - Passo 3: Mapeamento Dinâmico De-Para (Gatilho <code>+</code>)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Vincular sob demanda colunas internas do SIGES com as colunas da planilha externa.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>No Passo 3, observe o painel esquerdo inicialmente limpo.</li>
+<li>Clique no botão de destaque interativo <strong>"+" (Adicionar Coluna)</strong>.</li>
+<li>Escolha uma propriedade interna (ex: <em>Cliente</em>, <em>PEP Obra</em>, <em>TDC</em>).</li>
+<li>No dropdown da direita, selecione a coluna correspondente da planilha.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> Cada clique no botão <code>+</code> adiciona uma nova linha de correspondência de-para reativa.</li>
+<li class="check-item"><span class="box-check">☐</span> É possível remover mapeamentos adicionados incorretamente pelo botão da lixeira.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>5.4 Trava de Chave Única Obrigatória (<code>num_servico</code> / RN-08.3)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Garantir a correspondência unívoca e impedir importações cegas que corrompam o banco de dados.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Mapeie apenas campos secundários (ex: <em>Cliente</em> e <em>Bairro</em>), deixando a chave de serviço de fora.</li>
+<li>Tente clicar no botão <strong>"Confirmar e Sincronizar"</strong>.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O sistema bloqueia a execução e exibe o alerta obrigatório da RN-08.3: <em>"O mapeamento do 'Número do Serviço' é obrigatório para sincronizar os dados."</em></li>
+<li class="check-item"><span class="box-check">☐</span> Ao adicionar e mapear a coluna <em>Número do Serviço</em>, o botão de sincronização é habilitado.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>5.5 Atualização Seletiva e Relatório de Inconsistências (RN-08.2 e RN-08.4)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Atualizar somente os dados selecionados sem apagar campos pré-existentes e auditar o resultado da carga.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Complete o mapeamento da chave e de mais 1 campo e confirme a importação.</li>
+<li>Observe o sumário final emitido na tela.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O sistema exibe um relatório pós-importação informando: total de linhas processadas, quantidade atualizada com sucesso e lista de ordens não encontradas (se houver).</li>
+<li class="check-item"><span class="box-check">☐</span> Campos do banco de dados que não foram incluídos no de-para permanecem 100% intactos com seus valores anteriores (sem sobrescrita por nulos).</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>⚡ Módulo 6: Tela 01 - Medição, Validador de Origem, Lotes e Bypass</h2>
+<p><em>Origem: CDU V1 (CDU-01 e CDU-02), CDU V4 e CDU V5 (Item 2.0 - Tela 01)</em></p>
+<h3>6.1 Trava Obrigatória do Sistema de Origem do Serviço</h3>
+<ul>
+<li><strong>Objetivo:</strong> Blindar a empresa contra devoluções e glosas da Distribuidora por falta de identificação do canal gerador.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Na tela de <strong>Medição</strong>, selecione uma ordem cujo campo Sistema de Origem esteja vazio ou <code>⚠️ NÃO VALIDADO</code>.</li>
+<li>Tente tramitar o serviço para frente utilizando a barra de ações ou o Drawer lateral.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O sistema bloqueia o avanço e exibe o alerta: <em>"Validação Obrigatória do Sistema de Origem não confirmada! É necessário definir o Sistema de Origem (Eorder, Synergia, SacBt, etc) antes de avançar."</em></li>
+<li class="check-item"><span class="box-check">☐</span> No Drawer, selecione a origem correta (ex: <em>Eorder</em>), salve e repita a tramitação. O avanço deve ocorrer normalmente.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>6.2 Bypass do Fluxo Comercial (Salto Inteligente para Faturamento)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Eliminar etapas burocráticas desnecessárias para contratos e ordens do tipo Comercial.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Localize na tela de Medição uma ordem pertencente a um contrato ou tipo de serviço <strong>Comercial</strong>.</li>
+<li>Aprove a medição sem pendências para que o serviço avance.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> A ordem pula automaticamente a etapa de fechamento de campo (Status 03) e é direcionada direto para o <strong>Status 08 (Validado — Aguard. Autorização de Faturamento)</strong>.</li>
+<li class="check-item"><span class="box-check">☐</span> Na Timeline do serviço, é gravada automaticamente a nota explicativa: <code>⚡ [Bypass Comercial - CDU V5] ... pulou automaticamente para o Status 08</code>.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>6.3 Ações em Lote Inteligentes com Tolerância a Falhas Parciais</h3>
+<ul>
+<li><strong>Objetivo:</strong> Evitar que um lote com dezenas de serviços seja cancelado se apenas uma ordem contiver pendência.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Selecione 3 ordens na tabela de Medição.</li>
+<li>Certifique-se intencionalmente de que 1 delas está irregular (ex: sem sistema de origem) e as outras 2 estão regulares.</li>
+<li>Execute uma ação em lote (ex: <em>Enviar Lote para Validação</em> ou <em>Validar Origem</em>).</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> A API responde com código HTTP de sucesso para a operação parcial, sem travar o navegador nem retornar erro 500.</li>
+<li class="check-item"><span class="box-check">☐</span> O sistema exibe um sumário detalhado informando: <code>✅ 2 serviço(s) tramitado(s) com sucesso</code> e <code>⚠️ 1 com falha (exibindo o motivo do bloqueio)</code>.</li>
+<li class="check-item"><span class="box-check">☐</span> Os 2 serviços regulares avançam na esteira e o irregular permanece selecionável para correção.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>6.4 Correlação Visual de Serviços Irmãos</h3>
+<ul>
+<li><strong>Objetivo:</strong> Agrupar visualmente na esteira ordens que pertencem à mesma Obra/PEP, Incidência ou Cliente.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Na tabela da tela de Medição, role a lista e localize serviços com a mesma Incidência ou mesmo PEP.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O sistema destaca as ordens correlatas com uma borda azul suave e insere o badge identificador <code>🔗 SOB Irmã</code>.</li>
+<li class="check-item"><span class="box-check">☐</span> Ao passar o cursor sobre o badge, um tooltip explica o critério de compartilhamento (mesma incidência, obra ou cliente).</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>6.5 Hyperlink Oficial do GPM com Parâmetro GET <code>cod_srv</code></h3>
+<ul>
+<li><strong>Objetivo:</strong> Abrir a visualização oficial da ordem de serviço diretamente no sistema legado GPM sem fechar o SIGES.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Na tabela de serviços ou no Drawer lateral, observe o número da ordem (ex: <code>SOB-363442192</code>).</li>
+<li>Passe o cursor sobre o link azul e clique sobre ele.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O link abre uma nova aba do navegador (<code>target="_blank"</code>).</li>
+<li class="check-item"><span class="box-check">☐</span> A URL de destino aponta estritamente para o método oficial GET do GPM:
+  <code>text
+  https://cosampa.gpm.srv.br/gpm/geral/relatorio_servico.php?cod_srv=363442192</code></li>
+<li class="check-item"><span class="box-check">☐</span> O prefixo <code>SOB-</code> é isolado da URL, mantendo-se perfeitamente visível na interface do SIGES.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>6.6 Envio em Lote para Validação do Cliente (CDU-02)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Consolidar medições internas do Status 03 e enviá-las para aprovação formal da Distribuidora.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Filtre a listagem pelo <strong>Status 03 (Aguardando Envio para Validação)</strong>.</li>
+<li>Selecione uma ou mais ordens e clique no botão <strong>"🚀 Enviar Lote p/ Validação (CDU-02)"</strong>.</li>
+<li>Preencha os campos obrigatórios da transição: <strong>Sistema de Faturamento</strong> e <strong>Mês de Medição Inicial</strong> (<code>MM/AAAA</code>).</li>
+<li>Confirme o envio.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> Os serviços avançam para o <strong>Status 05 (Aguard. Validação do Cliente)</strong>.</li>
+<li class="check-item"><span class="box-check">☐</span> Os campos de competência e sistema de faturamento são gravados nas propriedades dos serviços.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>💰 Módulo 7: Módulo Financeiro, Faturamento e Conciliação Automática</h2>
+<p><em>Origem: CDU V5 (Item 2.0 - Telas 04, 05 e 06)</em></p>
+<h3>7.1 Tela 04: Validação de Faturamento e Trava de Data (08 ➔ 09)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Garantir a conferência formal do faturamento antes de direcionar a ordem para conciliação.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Acesse pelo menu a tela de <strong>Faturamento (Tela 04)</strong>.</li>
+<li>Selecione uma ordem no <strong>Status 08 (Validado — Aguard. Autorização)</strong>.</li>
+<li>Tente avançar a ordem sem preencher a Data de Validação.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O sistema recusa o avanço e emite alerta: <em>"O preenchimento da Data de Validação é obrigatório para avançar para o Faturado/Conciliação (CDU V5 - Tela 04)"</em>.</li>
+<li class="check-item"><span class="box-check">☐</span> Informe a data de validação (ou clique no atalho "Hoje") e acione <strong>"Validar e Enviar p/ Conciliação"</strong>. A ordem transita com sucesso para o <strong>Status 09</strong>.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>7.2 Tela 05 (Sub-Aba 09): Trava de Mês de Emissão do Faturamento (09 ➔ 10)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Estabelecer a competência de emissão financeira (<code>MM/AAAA</code>) antes de disponibilizar o faturamento para o evento de conciliação.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Acesse a tela de <strong>Conciliações (Tela 05)</strong> e entre na sub-aba <strong>09. Aguardando Retorno</strong>.</li>
+<li>Abra o Drawer lateral de um serviço no Status 09.</li>
+<li>Tente avançar para o Status 10 sem digitar o mês de emissão.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O avanço é bloqueado exigindo o preenchimento de <code>mes_emissao</code> no padrão <code>MM/AAAA</code>.</li>
+<li class="check-item"><span class="box-check">☐</span> Digite a competência (ex: <code>09/2026</code>) e confirme. A ordem transita para o <strong>Status 10 (Análise de Conciliação)</strong>.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>7.3 Tela 05 (Sub-Aba 10): Snapshot Pré-Importação ("Relatório ANTES")</h3>
+<ul>
+<li><strong>Objetivo:</strong> Congelar uma cópia imutável dos dados faturados antes de processar qualquer pagamento da concessionária.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Na tela de <strong>Conciliações</strong>, acesse a sub-aba <strong>10. Evento de Conciliação</strong>.</li>
+<li>Clique no botão superior <strong>"📸 Snapshot Pré-Importação (Relatório ANTES)"</strong>.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O sistema abre um modal estruturado consultando a tabela <code>conciliacao_snapshots</code>.</li>
+<li class="check-item"><span class="box-check">☐</span> São exibidos os dados originais exatos dos serviços (IDs, Contratos, Clientes, Status Anterior e Valor Faturado Integral).</li>
+<li class="check-item"><span class="box-check">☐</span> O registro do snapshot fica gravado permanentemente para fins de auditoria contábil e jurídica.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>7.4 Tela 05 (Sub-Aba 10): Fechamento Transacional Automático de Conciliação</h3>
+<ul>
+<li><strong>Objetivo:</strong> Efetuar o confronto automático entre os valores faturados pela Cosampa e os valores pagos pela Distribuidora.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Na sub-aba <strong>10. Evento de Conciliação</strong>, clique em <strong>"⚡ Fechar Evento de Conciliação"</strong>.</li>
+<li><strong>Cenário 1 (100% Batido):</strong> Escolha o cenário de pagamento integral e confirme o processamento.</li>
+<li><strong>Cenário 2 (Com Glosa/Divergência):</strong> Escolha o cenário com glosas parciais e confirme o processamento.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> <strong>Resultado Cenário 1:</strong> As ordens cujo pagamento cobriu 100% do valor faturado são direcionadas automaticamente para o <strong>Status 14 (FATURADO TOTAL - FINALIZADO)</strong> com nota de liquidação na Timeline.</li>
+<li class="check-item"><span class="box-check">☐</span> <strong>Resultado Cenário 2:</strong> As ordens que sofreram corte de pagamento são direcionadas automaticamente para o <strong>Status 11 (CONCILIADO COM DIVERGENCIAS)</strong>, calculando e exibindo a diferença no campo <code>divergencia_conciliacao</code>.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>7.5 Tela 05 (Sub-Aba 11): Comparador Dinâmico Bilateral de Itens (Baremo)</h3>
+<ul>
+<li><strong>Objetivo:</strong> Permitir ao analista dissecar a glosa item a item do baremo para identificar onde a Distribuidora cortou medição.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Na tela de <strong>Conciliações</strong>, entre na sub-aba <strong>11. Divergências</strong> e abra o Drawer de um serviço no Status 11.</li>
+<li>Observe os cards de confronto: <em>Realizado (Cosampa)</em>, <em>Pago (Distribuidora)</em> e <em>Divergência</em>.</li>
+<li>Clique no botão <strong>"🔍 Ver Detalhamento por Item (Baremo)"</strong>.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O painel abre uma tabela listando cada código e descrição de item do baremo medido.</li>
+<li class="check-item"><span class="box-check">☐</span> Confronta lado a lado a quantidade realizada, valor faturado, valor pago pela Distribuidora e a divergência pontual apurada.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>7.6 Tela 05 (Sub-Aba 11 ➔ 12): Trava de Justificativa Técnica e Evidências SharePoint</h3>
+<ul>
+<li><strong>Objetivo:</strong> Condicionar a contestação de glosas ao registro formal de justificativa e documentação comprobatória.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>No Drawer lateral do serviço com divergência (Status 11), localize os campos de Justificativa Técnica e Link do SharePoint.</li>
+<li>Tente clicar no botão <strong>"Cobrar Cliente (Ir p/ 12)"</strong> deixando a justificativa em branco.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O sistema bloqueia a tramitação e exibe alerta exigindo justificativa técnica formal.</li>
+<li class="check-item"><span class="box-check">☐</span> Preencha a justificativa técnica, insira o link da pasta do SharePoint contendo as evidências fotográficas e confirme.</li>
+<li class="check-item"><span class="box-check">☐</span> A ordem transita para o <strong>Status 12 (Pgto a Menor — Cobrar Cliente)</strong>, a justificativa é postada na Timeline e o link do SharePoint é persistido.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>7.7 Tela 05 (Sub-Aba 12 ➔ 13): Gestão de Disputas e Mês de Reapresentação</h3>
+<ul>
+<li><strong>Objetivo:</strong> Estabelecer a custódia jurídica/contratual e o prazo de reapresentação das glosas a recuperar.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Localize a ordem no <strong>Status 12</strong>.</li>
+<li>No Drawer, localize a seção <strong>"Mês de Reapresentação &amp; Disputa"</strong>.</li>
+<li>Tente avançar sem preencher o mês de reapresentação.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O sistema bloqueia a tramitação informando a obrigatoriedade da competência de reapresentação.</li>
+<li class="check-item"><span class="box-check">☐</span> Informe o mês (ex: <code>11/2026</code>) e clique em <strong>"Iniciar Disputa Contratual"</strong>.</li>
+<li class="check-item"><span class="box-check">☐</span> A ordem avança para o <strong>Status 13 (Pgto a Menor — Em Disputa)</strong>, registrando o analista logado como <code>responsavel_disputa</code>.</li>
+<li class="check-item"><span class="box-check">☐</span> O Drawer do Status 13 passa a exibir o responsável nominal, mês de reapresentação e link clicável direto para o SharePoint.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>7.8 Tela 06 / Sub-Aba 14: Blindagem e Imutabilidade do Status 14</h3>
+<ul>
+<li><strong>Objetivo:</strong> Garantir que ordens integralmente recebidas e conciliadas fiquem permanentemente protegidas contra adulterações.</li>
+<li><strong>Passo a Passo:</strong><ol>
+<li>Acesse a tela ou sub-aba <strong>14. Finalizados</strong>.</li>
+<li>Abra o Drawer lateral de qualquer serviço com Status 14.</li>
+<li>Tente tramitar o serviço para qualquer outro status pelo painel ou via chamada direta à API.</li>
+</ol>
+</li>
+<li><strong>Critério de Validação:</strong><ul>
+<li class="check-item"><span class="box-check">☐</span> O Drawer exibe o selo de proteção em destaque verde: <strong>"🔒 REGISTRO FINALIZADO E TRANCADO (100% FATURADO)"</strong>.</li>
+<li class="check-item"><span class="box-check">☐</span> Os controles de tramitação manual ficam desabilitados/ocultos.</li>
+<li class="check-item"><span class="box-check">☐</span> O backend rejeita terminantemente qualquer tentativa de modificação retornando status de bloqueio por imutabilidade.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>📊 Matriz Consolidada de Rastreabilidade (CDU V0 ➔ V5)</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Funcionalidade Implementada</th>
+<th style="text-align: center;">Versão de Origem do CDU</th>
+<th style="text-align: left;">Componente / Rota Principal</th>
+<th style="text-align: center;">Status de Entrega</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Log de Auditoria Imutável (RN-01)</strong></td>
+<td style="text-align: center;">CDU V0 / V1</td>
+<td style="text-align: left;"><code>backend/db.py</code> (<code>registrar_log_auditoria</code>)</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Bloqueio Rígido por Pendências (RN-03)</strong></td>
+<td style="text-align: center;">CDU V0 / V1</td>
+<td style="text-align: left;"><code>backend/db.py</code> (<code>tramitar_servico_db</code>)</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Retorno Automático p/ Medição (RN-04)</strong></td>
+<td style="text-align: center;">CDU V0 / V1</td>
+<td style="text-align: left;"><code>backend/db.py</code> (Resolução 100% itens)</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Filtro Hierárquico de Campo (RN-05)</strong></td>
+<td style="text-align: center;">CDU V1 / V2</td>
+<td style="text-align: left;"><code>frontend/app.js</code> e queries relacionais</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Desacoplamento <code>num_servico</code> vs <code>tdc</code></strong></td>
+<td style="text-align: center;">CDU V2 / V5</td>
+<td style="text-align: left;"><code>backend/db.py</code> e colunas do MySQL</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Importador Inteligente de Planilhas (CDU-08)</strong></td>
+<td style="text-align: center;">CDU V3</td>
+<td style="text-align: left;"><code>/api/servicos/importar-dinamico</code> (Wizard 3 passos)</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Perfis de Tela e Modo de Edição Dinâmico</strong></td>
+<td style="text-align: center;">CDU V4</td>
+<td style="text-align: left;"><code>/api/perfis_tela</code> (Master Global vs Privado)</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Controle de Acesso por Alçadas (RBAC)</strong></td>
+<td style="text-align: center;">CDU V3 / V4</td>
+<td style="text-align: left;"><code>/api/auth/login</code> e <code>/api/usuarios</code></td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Paginação Server-Side e Lazy Loading</strong></td>
+<td style="text-align: center;">CDU V5</td>
+<td style="text-align: left;"><code>/api/servicos?skip=0&amp;limit=10</code> e LocalStorage</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Timeline Colaborativa com <code>@menções</code></strong></td>
+<td style="text-align: center;">CDU V5</td>
+<td style="text-align: left;"><code>/api/servicos/&lt;id&gt;/comentarios</code></td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Motor de SLA Dinâmico por Status</strong></td>
+<td style="text-align: center;">CDU V5</td>
+<td style="text-align: left;">Badges coloridos e cálculo de dias úteis</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Trava Obrigatória de Sistema de Origem</strong></td>
+<td style="text-align: center;">CDU V5</td>
+<td style="text-align: left;">Validador pré-tramitação e lote</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Bypass Comercial Inteligente (01 ➔ 08)</strong></td>
+<td style="text-align: center;">CDU V5</td>
+<td style="text-align: left;">Roteamento automático de contratos comerciais</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Processamento de Lotes com Falha Parcial</strong></td>
+<td style="text-align: center;">CDU V5</td>
+<td style="text-align: left;">Sumário tolerante a falhas pontuais</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Serviços Irmãos e Hyperlinks GPM (<code>cod_srv</code>)</strong></td>
+<td style="text-align: center;">CDU V5</td>
+<td style="text-align: left;">Agrupamento visual e URL oficial do GPM</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Validação de Faturamento (08 ➔ 09)</strong></td>
+<td style="text-align: center;">CDU V5</td>
+<td style="text-align: left;">Trava obrigatória de <code>data_validacao</code></td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Mês de Emissão do Faturamento (09 ➔ 10)</strong></td>
+<td style="text-align: center;">CDU V5</td>
+<td style="text-align: left;">Trava obrigatória de <code>mes_emissao</code> (MM/AAAA)</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Snapshot Pré-Importação ("Relatório ANTES")</strong></td>
+<td style="text-align: center;">CDU V5</td>
+<td style="text-align: left;"><code>/api/conciliacao/evento/iniciar-snapshot</code></td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Fechamento Automático de Conciliação</strong></td>
+<td style="text-align: center;">CDU V5</td>
+<td style="text-align: left;"><code>/api/conciliacao/evento/fechar</code> (100% batido vs glosa)</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Comparador Dinâmico Bilateral (Status 11)</strong></td>
+<td style="text-align: center;">CDU V5</td>
+<td style="text-align: left;"><code>/api/servicos/&lt;id&gt;/comparador-bilateral</code></td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Justificativa Obrigatória e SharePoint (11 ➔ 12)</strong></td>
+<td style="text-align: center;">CDU V5</td>
+<td style="text-align: left;">Exigência na Timeline e link documental</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Gestão de Disputas e Custódia (12 ➔ 13)</strong></td>
+<td style="text-align: center;">CDU V5</td>
+<td style="text-align: left;">Trava de <code>mes_reapresentacao</code> e responsável</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Imutabilidade e Trancamento do Status 14</strong></td>
+<td style="text-align: center;">CDU V5</td>
+<td style="text-align: left;">Bloqueio categórico contra alterações operacionais</td>
+<td style="text-align: center;">✅ 100% Funcional</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<blockquote>
+<p>[!NOTE]
+<strong>Orientações para a Sessão de Testes:</strong> Inicie a execução pelo Módulo 1 (Fundações) e avance sequencialmente até o Módulo 7 (Financeiro). Todas as rotas do backend estão ativas e sincronizadas com o banco de dados MySQL <code>siges_app</code>.</p>
+</blockquote>
+
+    <div class="footer-print">
+      <span>SIGES — Sistema de Gestão de Etapas de Serviços | Cosampa</span>
+      <span>Roteiro Oficial de Homologação e Testes Operacionais (CDU V0 a V5)</span>
+    </div>
+  </div>
+</body>
+</html>

@@ -3,11 +3,12 @@ import os
 import subprocess
 import markdown
 
-MD_PATH = r"c:\git\SIGES-SISTEMAS DE GESTAO DE ETAPAS DE SERVICOS\docs\checklists\checklist_completo_implementacao_cdu_v5.md"
-HTML_PATH = r"c:\git\SIGES-SISTEMAS DE GESTAO DE ETAPAS DE SERVICOS\docs\checklists\checklist_completo_implementacao_cdu_v5.html"
-PDF_PATH = r"c:\git\SIGES-SISTEMAS DE GESTAO DE ETAPAS DE SERVICOS\docs\checklists\checklist_completo_implementacao_cdu_v5.pdf"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MD_PATH = os.path.join(BASE_DIR, "checklist_mestre_cdu_v0_a_v5.md")
+HTML_PATH = os.path.join(BASE_DIR, "checklist_mestre_cdu_v0_a_v5.html")
+PDF_PATH = os.path.join(BASE_DIR, "checklist_mestre_cdu_v0_a_v5.pdf")
 
-def generate_pdf_report():
+def generate_mestre_pdf():
     with open(MD_PATH, 'r', encoding='utf-8') as f:
         md_text = f.read()
 
@@ -22,16 +23,18 @@ def generate_pdf_report():
         tab_length=2
     )
 
-    # 3. Post-process badges for done and pending
+    # 3. Post-process checkboxes for interactive/printable view
+    body_html = body_html.replace('<li>[ ]', '<li class="check-item"><span class="box-check">☐</span>')
+    body_html = body_html.replace('<li>[x]', '<li class="check-item checked"><span class="box-check">☑</span>')
     body_html = body_html.replace('[x]', '<span class="badge badge-done">✓ CONCLUÍDO</span>')
-    body_html = body_html.replace('[ ]', '<span class="badge badge-pending">⏳ PENDENTE</span>')
+    body_html = body_html.replace('[ ]', '<span class="badge badge-pending">⏳ A TESTAR</span>')
 
     full_html = f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Checklist Geral de Implementação — SIGES (CDU V5)</title>
+  <title>SIGES — Checklist Mestre de Homologação (CDU V0 ao CDU V5)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -61,80 +64,38 @@ def generate_pdf_report():
     }}
 
     body {{
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 9pt;
-      line-height: 1.4;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 11px;
+      line-height: 1.5;
       color: var(--text-main);
       background-color: var(--bg-page);
       margin: 0;
       padding: 0;
     }}
 
-    /* Screen Presentation Container */
-    @media screen {{
-      body {{
-        padding: 32px 16px;
-      }}
-      .doc-wrapper {{
-        max-width: 940px;
-        margin: 0 auto;
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 10px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
-        padding: 40px 48px;
-      }}
-      .screen-actions {{
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        margin-bottom: 20px;
-      }}
-      .btn-print {{
-        background: var(--primary);
-        color: #ffffff;
-        border: none;
-        border-radius: 6px;
-        padding: 8px 16px;
-        font-size: 9pt;
-        font-weight: 600;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        transition: background 0.15s ease;
-      }}
-      .btn-print:hover {{
-        background: var(--primary-dark);
-      }}
+    .container {{
+      max-width: 1000px;
+      margin: 20px auto;
+      background: var(--bg-card);
+      padding: 32px 40px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
     }}
 
-    /* Print Budgeting & Rules */
+    /* Compact Print Budgeting & Layout */
     @media print {{
-      @page {{
-        size: A4 portrait;
-        margin: 8mm 10mm 8mm 10mm;
-        @bottom-right {{
-          content: "Página " counter(page);
-          font-size: 7pt;
-          color: #64748b;
-          font-family: 'Inter', sans-serif;
-        }}
-      }}
       body {{
-        background-color: #ffffff;
-        font-size: 8pt;
-        line-height: 1.3;
+        background: #ffffff !important;
+        font-size: 8pt !important;
+        line-height: 1.3 !important;
       }}
-      .doc-wrapper {{
-        padding: 0 !important;
+      .container {{
+        width: 100% !important;
+        max-width: none !important;
         margin: 0 !important;
-        border: none !important;
+        padding: 0 !important;
         box-shadow: none !important;
-        max-width: 100% !important;
-      }}
-      .screen-actions {{
-        display: none !important;
+        border-radius: 0 !important;
       }}
       h1, h2, h3, h4 {{
         break-after: avoid !important;
@@ -144,19 +105,34 @@ def generate_pdf_report():
         break-before: auto !important;
         page-break-before: auto !important;
       }}
-      .check-item {{
+      table, .badge {{
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }}
+      li.check-item {{
         break-inside: avoid;
         page-break-inside: avoid;
       }}
     }}
 
-    .header-banner {{
-      border-bottom: 2px solid var(--primary);
-      padding-bottom: 6px;
-      margin-bottom: 10px;
+    @page {{
+      size: A4 portrait;
+      margin: 8mm 10mm 8mm 10mm;
+      @bottom-right {{
+        content: "Página " counter(page);
+        font-size: 7.5pt;
+        color: #64748b;
+        font-family: 'Inter', sans-serif;
+      }}
+    }}
+
+    .header-doc {{
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
+      border-bottom: 2px solid var(--primary);
+      padding-bottom: 8px;
+      margin-bottom: 10px;
       page-break-after: avoid;
       break-after: avoid;
     }}
@@ -165,31 +141,27 @@ def generate_pdf_report():
       font-size: 15pt;
       font-weight: 800;
       color: var(--text-heading);
+      letter-spacing: -0.02em;
       margin: 0;
-      letter-spacing: -0.3px;
     }}
 
     .header-subtitle {{
-      font-size: 8.5pt;
-      color: var(--primary);
+      font-size: 9pt;
       font-weight: 600;
+      color: var(--primary);
       margin-top: 2px;
     }}
 
     .header-meta {{
+      text-align: right;
       font-size: 7.5pt;
       color: var(--text-muted);
-      text-align: right;
-      font-weight: 500;
       line-height: 1.3;
-    }}
-
-    .header-meta strong {{
-      color: var(--text-heading);
     }}
 
     h1 {{
       font-size: 12pt;
+      font-weight: 800;
       color: var(--text-heading);
       border-bottom: 1.5px solid var(--border-color);
       padding-bottom: 3px;
@@ -201,8 +173,9 @@ def generate_pdf_report():
 
     h2 {{
       font-size: 9.5pt;
-      color: var(--primary-dark);
-      background: var(--primary-light);
+      font-weight: 700;
+      color: #0369a1;
+      background: #f0f9ff;
       border-left: 3.5px solid var(--primary);
       padding: 3px 8px;
       margin-top: 10px;
@@ -214,11 +187,14 @@ def generate_pdf_report():
 
     h3 {{
       font-size: 8.5pt;
+      font-weight: 700;
       color: var(--text-heading);
       margin-top: 7px;
       margin-bottom: 3px;
-      font-weight: 700;
-      border-bottom: 1px dashed #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      border-bottom: 1px dotted #e2e8f0;
       padding-bottom: 2px;
       page-break-after: avoid;
       break-after: avoid;
@@ -229,134 +205,135 @@ def generate_pdf_report():
     }}
 
     ul {{
-      margin: 2px 0 4px 14px;
-      padding: 0;
-    }}
-
-    ul ul {{
-      margin: 1px 0 3px 12px;
+      margin: 2px 0 4px 0;
+      padding-left: 18px;
     }}
 
     ol {{
-      margin: 2px 0 4px 14px;
-      padding: 0;
+      margin: 2px 0 4px 0;
+      padding-left: 18px;
     }}
 
     li {{
       margin-bottom: 1.5px;
     }}
 
+    li.check-item {{
+      list-style-type: none;
+      position: relative;
+      padding-left: 6px;
+      font-size: 8pt;
+      font-weight: 500;
+      color: #334155;
+    }}
+
+    .box-check {{
+      display: inline-block;
+      width: 12px;
+      font-size: 10pt;
+      color: var(--primary);
+      margin-right: 3px;
+    }}
+
+    li.checked .box-check {{
+      color: #16a34a;
+    }}
+
     code {{
-      font-family: 'JetBrains Mono', Consolas, "Courier New", monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 7.5pt;
       background: #f1f5f9;
       color: #0f172a;
-      padding: 1px 4px;
-      border-radius: 3px;
-      border: 1px solid #cbd5e1;
+      padding: 0.5px 3px;
+      border-radius: 2px;
+      border: 1px solid #e2e8f0;
     }}
 
-    strong {{
-      font-weight: 600;
-      color: var(--text-heading);
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      margin: 5px 0 8px 0;
+      font-size: 7.5pt;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }}
 
-    a {{
-      color: var(--primary);
-      text-decoration: none;
+    th, td {{
+      padding: 3px 5px;
+      border: 1px solid var(--border-color);
+      text-align: left;
     }}
 
-    a:hover {{
-      text-decoration: underline;
+    th {{
+      background: #f1f5f9;
+      font-weight: 700;
+      color: #334155;
+    }}
+
+    tr:nth-child(even) {{
+      background: #f8fafc;
     }}
 
     .badge {{
       display: inline-block;
       font-size: 7pt;
       font-weight: 700;
-      padding: 1.5px 6px;
-      border-radius: 4px;
-      letter-spacing: 0.2px;
-      vertical-align: 1px;
+      padding: 0.5px 4px;
+      border-radius: 2px;
       text-transform: uppercase;
+      letter-spacing: 0.02em;
     }}
 
     .badge-done {{
-      background-color: var(--success-bg);
+      background: var(--success-bg);
       color: var(--success-text);
       border: 1px solid var(--success-border);
     }}
 
     .badge-pending {{
-      background-color: var(--warning-bg);
+      background: var(--warning-bg);
       color: var(--warning-text);
       border: 1px solid var(--warning-border);
     }}
 
-    table {{
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 8pt;
-      margin: 8px 0 12px 0;
-      page-break-inside: avoid;
-      break-inside: avoid;
-      background: #ffffff;
-    }}
-
-    th, td {{
-      border: 1px solid #cbd5e1;
-      padding: 5px 8px;
-      text-align: left;
-      vertical-align: top;
-    }}
-
-    th {{
-      background-color: #0f172a;
-      color: #ffffff;
-      font-weight: 700;
-      font-size: 8pt;
-    }}
-
-    tr:nth-child(even) {{
-      background-color: #f8fafc;
-    }}
-
     hr {{
       border: none;
-      border-top: 1px solid var(--border-color);
-      margin: 12px 0;
+      border-top: 1px dashed var(--border-color);
+      margin: 6px 0;
+    }}
+
+    blockquote {{
+      background: #f0fdf4;
+      border-left: 3px solid #22c55e;
+      margin: 6px 0;
+      padding: 4px 8px;
+      color: #166534;
+      font-size: 7.5pt;
+      border-radius: 0 3px 3px 0;
     }}
 
     .footer-print {{
-      margin-top: 18px;
-      border-top: 1px solid #cbd5e1;
-      padding-top: 8px;
+      margin-top: 12px;
+      border-top: 1px solid var(--border-color);
+      padding-top: 4px;
       display: flex;
       justify-content: space-between;
-      font-size: 7.5pt;
+      font-size: 7pt;
       color: var(--text-muted);
-      page-break-inside: avoid;
-      break-inside: avoid;
     }}
   </style>
 </head>
 <body>
-  <div class="doc-wrapper">
-    <div class="screen-actions">
-      <button class="btn-print" onclick="window.print()">
-        🖨️ Imprimir / Salvar PDF
-      </button>
-    </div>
-
-    <div class="header-banner">
+  <div class="container">
+    <div class="header-doc">
       <div>
-        <div class="header-title">SIGES — Checklist de Implementação</div>
-        <div class="header-subtitle">Confronto Técnico & Homologação com Especificação CDU V5</div>
+        <div class="header-title">SIGES — Checklist Mestre de Homologação</div>
+        <div class="header-subtitle">Consolidação Integral de Casos de Uso: do CDU V0 ao CDU V5</div>
       </div>
       <div class="header-meta">
-        <div><strong>Status Oficial:</strong> Blocos 1, 2, 3 e 4 Concluídos [x]</div>
-        <div><strong>Data de Emissão:</strong> 25/09/2026</div>
-        <div><strong>Versão:</strong> 5.0 (Oficial)</div>
+        <div><strong>Status da Plataforma:</strong> 100% Implementado [x]</div>
+        <div><strong>Data de Emissão:</strong> 28/09/2026</div>
+        <div><strong>Escopo:</strong> Testes Ponta a Ponta (End-to-End)</div>
       </div>
     </div>
 
@@ -364,7 +341,7 @@ def generate_pdf_report():
 
     <div class="footer-print">
       <span>SIGES — Sistema de Gestão de Etapas de Serviços | Cosampa</span>
-      <span>Documento Técnico Oficial para Impressão e Auditoria Operacional</span>
+      <span>Roteiro Oficial de Homologação e Testes Operacionais (CDU V0 a V5)</span>
     </div>
   </div>
 </body>
@@ -375,7 +352,6 @@ def generate_pdf_report():
         f.write(full_html)
     print(f"HTML gerado com sucesso em: {HTML_PATH}")
 
-    # Compile to PDF using Headless Edge / Chrome
     edge_paths = [
         r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
         r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
@@ -404,4 +380,4 @@ def generate_pdf_report():
         print("Nenhum executável de navegador encontrado.")
 
 if __name__ == "__main__":
-    generate_pdf_report()
+    generate_mestre_pdf()

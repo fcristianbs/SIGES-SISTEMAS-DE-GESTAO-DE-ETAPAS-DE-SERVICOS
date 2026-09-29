@@ -177,7 +177,7 @@ def buscar_servicos_db(contrato="todos", tipo="todos", status_id="todos", superv
                     data_primeira_validacao, data_programacao,
                     valor_pago_cliente, mes_reapresentacao, divergencia_conciliacao
                 {base_sql}
-                ORDER BY id DESC LIMIT %s OFFSET %s
+                ORDER BY COALESCE(updated_at, '2000-01-01') DESC, id DESC LIMIT %s OFFSET %s
             """
             params_busca = list(params) + [limit, skip]
             cursor.execute(sql, params_busca)
