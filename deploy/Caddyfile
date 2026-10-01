@@ -1,0 +1,47 @@
+# ==============================================================================
+# SIGES - CADDYFILE (PRODUÇÃO EM VPS)
+# Reverse Proxy de Alto Desempenho + Entrega de Estáticos + HTTPS Automático
+# ==============================================================================
+
+# Se você possui um domínio apontado para a VPS, substitua ':80' pelo seu domínio:
+# Exemplo: siges.cosampa.com.br { ... }
+
+:80 {
+    # Diretório raiz dos arquivos estáticos do Frontend
+    root * /var/www/siges/frontend
+
+    # Compressão moderna ultra-rápida (Zstandard e Gzip)
+    encode zstd gzip
+
+    # Servidor de arquivos estáticos
+    file_server
+
+    # Headers de Segurança
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+
+    # Cache de longa duração para arquivos estáticos (CSS, JS, Imagens, Fontes)
+    @static {
+        path *.css *.js *.png *.jpg *.jpeg *.svg *.woff2 *.ico
+    }
+    header @static Cache-Control "public, max-age=2592000, immutable"
+
+    # Encaminhamento transparente de todas as rotas da API para o Gunicorn
+    handle /api/* {
+        reverse_proxy 127.0.0.1:8000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            transport http {
+                response_header_timeout 120s
+            }
+        }
+    }
+
+    # Redirecionamento amigável para login caso arquivo não exista
+    try_files {path} {path}/ /login.html
+}
